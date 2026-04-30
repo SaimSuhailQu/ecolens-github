@@ -123,13 +123,13 @@ const App: React.FC = () => {
       setAnalysis(result);
       setStatus(AnalysisStatus.SUCCESS);
       setSelectedDashboardCategory(analysisCategory);
-      
+
       // Update export indices to match the selected category
-      const catIndices = analysisCategory === 'All' 
-        ? ['ndvi', 'ndwi', 'bsi'] 
+      const catIndices = analysisCategory === 'All'
+        ? ['ndvi', 'ndwi', 'bsi']
         : AVAILABLE_INDICES.filter(i => i.category === analysisCategory).map(i => i.id);
       setExportIndices(catIndices);
-      
+
       const defaultIndex = analysisCategory === 'All' ? 'ndvi' : (AVAILABLE_INDICES.find(i => i.category === analysisCategory)?.id || 'ndvi');
       setActiveOverlay(`${defaultIndex.toUpperCase()} (${result.locationName})`);
 
@@ -351,7 +351,7 @@ const App: React.FC = () => {
 
   const handleOverlayAdd = async (name: string) => {
     setActiveOverlay(name);
-    
+
     // Lazy loading logic
     if (analysis && analysis.visualization) {
       // Extract index ID from names like "[Vegetation] NDVI (Region Name)"
@@ -359,7 +359,7 @@ const App: React.FC = () => {
       if (match) {
         const indexName = match[2].trim();
         const idxInfo = AVAILABLE_INDICES.find(i => i.name === indexName || i.id === indexName.toLowerCase());
-        
+
         if (idxInfo && !analysis.visualization[idxInfo.id]) {
           try {
             const viz = await getLazyMapId(idxInfo.id, analysis.regionGeometry, (analysis.visualization as any)._metadata);
@@ -525,7 +525,7 @@ const App: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 mb-1">
                 <Leaf className="w-6 h-6 text-emerald-500" />
-                <h1 className="text-xl font-bold text-white tracking-tight">EcoLens WebGIS</h1>
+                <h1 className="text-xl font-bold text-white tracking-tight">EcoLens <span className="text-slate-500 font-normal">WebGIS</span></h1>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-white" title="Close Sidebar">
@@ -660,11 +660,11 @@ const App: React.FC = () => {
                   </div>
                   <div>
                     <label htmlFor="analysis-category" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Activity size={14} className="text-emerald-400" /> Category Focus</label>
-                    <select 
+                    <select
                       id="analysis-category"
                       name="analysis-category"
-                      value={analysisCategory} 
-                      onChange={(e) => setAnalysisCategory(e.target.value)} 
+                      value={analysisCategory}
+                      onChange={(e) => setAnalysisCategory(e.target.value)}
                       disabled={!isGeeReady || status === AnalysisStatus.LOADING}
                       className="w-full bg-emerald-900/20 border border-emerald-500/30 text-emerald-300 text-xs rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-emerald-900/40 disabled:opacity-50 transition-all font-bold"
                     >
