@@ -13,16 +13,31 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import { MonthlyDataPoint } from '../types';
+import { MonthlyDataPoint, AVAILABLE_INDICES } from '../types';
 
 interface ChartProps {
   data: MonthlyDataPoint[];
+  category?: string;
 }
 
-export const VegetationChart: React.FC<ChartProps> = ({ data }) => {
+export const DynamicIndexChart: React.FC<ChartProps> = ({ data, category = 'All' }) => {
+  const colors = [
+    '#4ade80', '#22d3ee', '#3b82f6', '#f97316', '#a855f7', 
+    '#fbbf24', '#f87171', '#e879f9', '#8b5cf6', '#6366f1',
+    '#ec4899', '#14b8a6', '#f43f5e', '#84cc16', '#06b6d4'
+  ];
+
+  const chartIndices = AVAILABLE_INDICES.filter(idx => {
+    if (['rainfall', 'temperature', 'pdsi', 'spei'].includes(idx.id)) return false;
+    if (category === 'All') return ['ndvi', 'ndwi', 'bsi', 'ndbi'].includes(idx.id); // Show top indices for 'All'
+    return idx.category === category;
+  });
+
   return (
     <div className="w-full h-64">
-      <h3 className="text-sm font-semibold text-slate-400 mb-2">Remote Sensing Indices</h3>
+      <h3 className="text-sm font-semibold text-slate-400 mb-2">
+        {category === 'All' ? 'Key Environmental Indices' : `${category} Indices`}
+      </h3>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
@@ -33,15 +48,18 @@ export const VegetationChart: React.FC<ChartProps> = ({ data }) => {
             itemStyle={{ color: '#e2e8f0' }}
           />
           <Legend />
-          <Line type="monotone" dataKey="ndvi" stroke="#4ade80" strokeWidth={2} dot={false} name="NDVI" />
-          <Line type="monotone" dataKey="evi" stroke="#22d3ee" strokeWidth={2} dot={false} name="EVI" />
-          <Line type="monotone" dataKey="ndwi" stroke="#3b82f6" strokeWidth={2} dot={false} name="NDWI" />
-          <Line type="monotone" dataKey="ndbi" stroke="#f97316" strokeWidth={2} dot={false} name="NDBI" />
-          <Line type="monotone" dataKey="savi" stroke="#a855f7" strokeWidth={2} dot={false} name="SAVI" />
-          <Line type="monotone" dataKey="msavi" stroke="#fbbf24" strokeWidth={2} dot={false} name="MSAVI" />
-          <Line type="monotone" dataKey="ndsi" stroke="#f87171" strokeWidth={2} dot={false} name="NDSI" />
-          <Line type="monotone" dataKey="ui" stroke="#e879f9" strokeWidth={2} dot={false} name="UI" />
-          <Line type="monotone" dataKey="bsi" stroke="#8b5cf6" strokeWidth={2} dot={false} name="BSI" />
+          {chartIndices.map((idx, i) => (
+            <Line 
+              key={idx.id}
+              type="monotone" 
+              dataKey={idx.id} 
+              stroke={colors[i % colors.length]} 
+              strokeWidth={2} 
+              dot={false} 
+              name={idx.name} 
+              connectNulls
+            />
+          ))}
         </LineChart>
       </ResponsiveContainer>
     </div>

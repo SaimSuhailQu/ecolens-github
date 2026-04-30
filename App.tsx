@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { MapViewer } from './components/MapViewer';
-import { VegetationChart, ClimateChart } from './components/Charts';
+import { DynamicIndexChart, ClimateChart } from './components/Charts';
 import { LandCoverDonut } from './components/LandCoverDonut';
 import { LULCChart } from './components/LULCChart';
 import { CodeBlock } from './components/CodeBlock';
@@ -885,7 +885,7 @@ const App: React.FC = () => {
                     </button>
                   </div>
 
-                  <VegetationChart data={analysis.data} />
+                  <DynamicIndexChart data={analysis.data} category={selectedDashboardCategory} />
                   <ClimateChart data={analysis.data} />
                   <LandCoverDonut data={analysis.landCover} />
                   <LULCChart data={analysis.landCover} />
