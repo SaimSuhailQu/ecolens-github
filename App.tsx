@@ -954,7 +954,14 @@ const App: React.FC = () => {
         </div>
 
         <div className="p-4 border-t border-slate-800 bg-slate-900 text-[10px] text-slate-600 flex justify-between items-center shrink-0">
-          <span>Powered by Google Earth Engine™</span>
+          <div className="flex gap-4 items-center">
+            <span>Powered by Google Earth Engine™</span>
+            <div className="flex gap-2">
+              <a href="/ecolens-github/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">Privacy Policy</a>
+              <span className="text-slate-800">|</span>
+              <a href="/ecolens-github/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">Terms of Service</a>
+            </div>
+          </div>
           <div className="flex gap-2 items-center"><span className={`w-2 h-2 rounded-full ${isGeeReady ? 'bg-blue-500' : 'bg-red-500'} animate-pulse`}></span>{isGeeReady ? 'System Online' : 'Offline'}</div>
         </div>
       </aside>
