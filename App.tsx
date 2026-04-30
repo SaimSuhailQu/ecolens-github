@@ -74,6 +74,7 @@ const App: React.FC = () => {
   const [localSearchResults, setLocalSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState<string | null>(null); // 'global' or 'local'
   const [selectedDashboardCategory, setSelectedDashboardCategory] = useState<string>('All');
+  const [analysisCategory, setAnalysisCategory] = useState<string>('Vegetation');
 
   const mapRef = useRef<HTMLDivElement>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
@@ -118,10 +119,13 @@ const App: React.FC = () => {
         return;
       }
 
-      const result = await analyzeRegionWithGEE(region, selectedYear, analysisLevel, resolution, startDate, endDate);
+      const result = await analyzeRegionWithGEE(region, selectedYear, analysisLevel, resolution, startDate, endDate, analysisCategory);
       setAnalysis(result);
       setStatus(AnalysisStatus.SUCCESS);
-      setActiveOverlay(`NDVI (${result.locationName})`);
+      setSelectedDashboardCategory(analysisCategory);
+      
+      const defaultIndex = analysisCategory === 'All' ? 'ndvi' : (AVAILABLE_INDICES.find(i => i.category === analysisCategory)?.id || 'ndvi');
+      setActiveOverlay(`${defaultIndex.toUpperCase()} (${result.locationName})`);
 
       // Close sidebar on small screens after analysis starts
       if (window.innerWidth < 1024) {
@@ -615,6 +619,24 @@ const App: React.FC = () => {
                 <option value="10">10m (Sentinel-2)</option>
                 <option value="30">30m (Landsat 8/9)</option>
               </select>
+            </div>
+            <div className="col-span-3">
+              <label className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Activity size={14} className="text-cyan-400" /> Analysis Category (Speed Focus)</label>
+              <select 
+                value={analysisCategory} 
+                onChange={(e) => setAnalysisCategory(e.target.value)} 
+                disabled={!isGeeReady || status === AnalysisStatus.LOADING}
+                className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50 transition-all font-bold text-emerald-400"
+              >
+                <option value="All">All Categories (Slowest)</option>
+                <option value="Vegetation">Vegetation (Fast)</option>
+                <option value="Water">Water (Fast)</option>
+                <option value="Burn">Burn (Fast)</option>
+                <option value="Urban">Urban (Fast)</option>
+                <option value="Geological">Geological (Fast)</option>
+                <option value="Climate">Climate (Fast)</option>
+              </select>
+              <p className="text-[10px] text-slate-500 mt-1 italic">Selecting a specific category speeds up the analysis by 5x-10x.</p>
             </div>
             <div className="col-span-3 grid grid-cols-2 gap-4">
               <div>

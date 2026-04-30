@@ -132,8 +132,9 @@ export const MapViewer: React.FC<MapViewerProps> = ({
                 const categoryIndices = AVAILABLE_INDICES.filter(idx => idx.category === category && !['rainfall', 'temperature', 'pdsi', 'spei'].includes(idx.id));
                 return categoryIndices.map(idx => {
                   const viz = analysis.visualization?.[idx.id];
+                  const isDefaultChecked = activeOverlay ? activeOverlay.includes(idx.name) : (idx.id === 'ndvi');
                   return (
-                    <LayersControl.Overlay key={idx.id} name={`[${category}] ${idx.name} (${analysis.locationName})`} checked={idx.id === 'ndvi'}>
+                    <LayersControl.Overlay key={idx.id} name={`[${category}] ${idx.name} (${analysis.locationName})`} checked={isDefaultChecked}>
                       {viz?.url ? (
                         <TileLayer url={viz.url} attribution="Google Earth Engine" opacity={1.0} />
                       ) : (

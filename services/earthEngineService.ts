@@ -160,7 +160,7 @@ export const getExportUrl = async (region: any, year: number, resolution: number
     return await getTiffUrlWithRetry(exportImage, `ecolens_export_${year}`, geometry, resolution);
 };
 
-export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number, level: AnalysisLevel, resolution: number, startDate: string, endDate: string): Promise<RegionAnalysis> => {
+export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number, level: AnalysisLevel, resolution: number, startDate: string, endDate: string, analysisCategory: string = 'All'): Promise<RegionAnalysis> => {
   if (!isInitialized) throw new Error("Earth Engine not initialized.");
   const cleanedGeometry = validateAndCleanGeometry(region.geometry);
   const geometry = level === 'custom' ? ee.Geometry(cleanedGeometry) : ee.Feature(region.geometry).geometry();
@@ -206,7 +206,11 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
         
         let all = ee.Image([]);
         AVAILABLE_INDICES
-          .filter(i => !['rainfall','temperature','pdsi','spei'].includes(i.id))
+          .filter(i => {
+            if (['rainfall','temperature','pdsi','spei'].includes(i.id)) return false;
+            if (analysisCategory === 'All') return true;
+            return i.category === analysisCategory;
+          })
           .forEach(i => {
             const idx = getIndexExpression(i.id, bands, monthlyImg);
             if (idx) all = all.addBands(idx.rename(i.id));
@@ -233,14 +237,18 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
     const medianImage = imageCol.median().clip(geometry);
     const viz: any = {};
     
-    // OPTIMIZED: Only load NDVI by default to speed up initial response
-    const defaultIndex = 'ndvi';
+    // OPTIMIZED: Only load the first index of the selected category by default
+    const defaultIndex = analysisCategory === 'All' ? 'ndvi' : (AVAILABLE_INDICES.find(i => i.category === analysisCategory)?.id || 'ndvi');
     const idx = AVAILABLE_INDICES.find(i => i.id === defaultIndex);
     
     if (idx) {
       const img = getIndexExpression(idx.id, bands, medianImage);
       if (img) {
-        const vis = { min: -1, max: 1, palette: ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] };
+        const palette = idx.category === 'Vegetation' ? ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] : 
+                      idx.category === 'Water' ? ['red', 'yellow', 'green', 'cyan', 'blue'] : 
+                      idx.category === 'Burn' ? ['#7a5230', '#d5a478', '#fff5d7', '#d4e7b0', '#397d49'] : 
+                      ['#008000', '#ffff00', '#ff0000'];
+        const vis = { min: -1, max: 1, palette };
         viz[idx.id] = await new Promise(r => img.getMap(vis, (o: any) => r(o ? { mapId: o.mapid, url: o.urlFormat } : null)));
       }
     }
