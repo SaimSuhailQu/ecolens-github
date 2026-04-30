@@ -608,61 +608,81 @@ const App: React.FC = () => {
         </header>
 
         <div className="flex-1 overflow-y-auto p-5 scroll-smooth custom-scrollbar">
-          <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-slate-800/20 border border-slate-800 rounded-xl">
-            <div>
-              <label htmlFor="admin-level" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Globe size={14} className="text-cyan-400" /> Admin Level</label>
-              <select id="admin-level" name="admin-level" value={analysisLevel} onChange={handleLevelChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50">
-                <option value="0">Level 0 (Country)</option>
-                <option value="1">Level 1 (Province/State)</option>
-                <option value="2">Level 2 (District/County)</option>
-                <option value="3">Level 3 (Tehsil/Local)</option>
-                <option value="custom">Custom Area</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="year-select" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> Year</label>
-              <select id="year-select" name="year-select" value={selectedYear} onChange={handleYearChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50">
-                {years.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="res-select" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Search size={14} className="text-cyan-400" /> Resolution</label>
-              <select id="res-select" name="res-select" value={resolution} onChange={handleResolutionChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50">
-                <option value="10">10m (Sentinel-2)</option>
-                <option value="30">30m (Landsat 8/9)</option>
-              </select>
-            </div>
-            <div className="col-span-3">
-              <label htmlFor="analysis-category" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Activity size={14} className="text-cyan-400" /> Analysis Category (Speed Focus)</label>
-              <select 
-                id="analysis-category"
-                name="analysis-category"
-                value={analysisCategory} 
-                onChange={(e) => setAnalysisCategory(e.target.value)} 
-                disabled={!isGeeReady || status === AnalysisStatus.LOADING}
-                className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50 transition-all font-bold text-emerald-400"
-              >
-                <option value="All">All Categories (Slowest)</option>
-                <option value="Vegetation">Vegetation (Fast)</option>
-                <option value="Water">Water (Fast)</option>
-                <option value="Burn">Burn (Fast)</option>
-                <option value="Urban">Urban (Fast)</option>
-                <option value="Geological">Geological (Fast)</option>
-                <option value="Climate">Climate (Fast)</option>
-              </select>
-              <p className="text-[10px] text-slate-500 mt-1 italic">Selecting a specific category speeds up the analysis by 5x-10x.</p>
-            </div>
-            <div className="col-span-3 grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="start-date" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> Start Date</label>
-                <input id="start-date" name="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} onBlur={handleDateChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {/* Location & Time Section */}
+            <div className="col-span-1 md:col-span-2 space-y-4 bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 backdrop-blur-sm shadow-xl">
+              <h3 className="text-sm font-bold text-emerald-400 flex items-center gap-2 border-b border-slate-800 pb-2 mb-4">
+                <Globe size={16} /> Spatiotemporal Parameters
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="admin-level" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Globe size={14} className="text-cyan-400" /> Admin Level</label>
+                  <select id="admin-level" name="admin-level" value={analysisLevel} onChange={handleLevelChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50 transition-colors">
+                    <option value="0">Level 0 (Country)</option>
+                    <option value="1">Level 1 (Province/State)</option>
+                    <option value="2">Level 2 (District/County)</option>
+                    <option value="3">Level 3 (Tehsil/Local)</option>
+                    <option value="custom">Custom Area</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="year-select" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> Year</label>
+                  <select id="year-select" name="year-select" value={selectedYear} onChange={handleYearChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50 transition-colors">
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label htmlFor="end-date" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> End Date</label>
-                <input id="end-date" name="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} onBlur={handleDateChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="start-date" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> Start Date</label>
+                  <input id="start-date" name="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} onBlur={handleDateChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50 transition-colors" />
+                </div>
+                <div>
+                  <label htmlFor="end-date" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> End Date</label>
+                  <input id="end-date" name="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} onBlur={handleDateChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50 transition-colors" />
+                </div>
               </div>
             </div>
 
+            {/* Analysis Engine Section */}
+            <div className="col-span-1 space-y-4 bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 backdrop-blur-sm shadow-xl flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-cyan-400 flex items-center gap-2 border-b border-slate-800 pb-2 mb-4">
+                  <Activity size={16} /> Analysis Engine
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="res-select" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Search size={14} className="text-cyan-400" /> Resolution</label>
+                    <select id="res-select" name="res-select" value={resolution} onChange={handleResolutionChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50 transition-colors">
+                      <option value="10">10m (Sentinel-2)</option>
+                      <option value="30">30m (Landsat 8/9)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="analysis-category" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Activity size={14} className="text-emerald-400" /> Category Focus</label>
+                    <select 
+                      id="analysis-category"
+                      name="analysis-category"
+                      value={analysisCategory} 
+                      onChange={(e) => setAnalysisCategory(e.target.value)} 
+                      disabled={!isGeeReady || status === AnalysisStatus.LOADING}
+                      className="w-full bg-emerald-900/20 border border-emerald-500/30 text-emerald-300 text-xs rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-emerald-900/40 disabled:opacity-50 transition-all font-bold"
+                    >
+                      <option value="All">All Categories (Slow)</option>
+                      <option value="Vegetation">Vegetation (Fast)</option>
+                      <option value="Water">Water (Fast)</option>
+                      <option value="Burn">Burn (Fast)</option>
+                      <option value="Urban">Urban (Fast)</option>
+                      <option value="Geological">Geological (Fast)</option>
+                      <option value="Climate">Climate (Fast)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
             {isGeeReady && analysisLevel === '3' && (
               <div className="col-span-3 space-y-3 bg-slate-900/60 p-3 rounded-lg border border-slate-700/50 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="flex items-center gap-2 mb-1">
@@ -726,15 +746,18 @@ const App: React.FC = () => {
               </div>
             )}
 
-            <div className="col-span-3 flex flex-col gap-3 mt-2">
+            <div className="flex flex-col gap-3 mt-4 bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 backdrop-blur-sm shadow-xl">
+              <h3 className="text-sm font-bold text-blue-400 flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
+                <MapPin size={16} /> Area Selection
+              </h3>
               <div className="flex gap-2">
                 <button
                   onClick={() => setDrawingMode(!drawingMode)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded border transition-all ${drawingMode ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg border transition-all ${drawingMode ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
                 >
                   <Square size={14} /> {drawingMode ? 'Cancel Drawing' : 'Draw Polygon'}
                 </button>
-                <label htmlFor="file-import" className="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded border bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 cursor-pointer transition-all">
+                <label htmlFor="file-import" className="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg border bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 cursor-pointer transition-all">
                   <Download size={14} className="rotate-180" /> Import File
                   <input id="file-import" name="file-import" type="file" onChange={handleFileUpload} accept=".kml,.kmz,.zip,.json,.geojson" className="hidden" />
                 </label>
@@ -743,9 +766,9 @@ const App: React.FC = () => {
               <button
                 onClick={handleRunAnalysis}
                 disabled={!isGeeReady || status === AnalysisStatus.LOADING || (!pendingLocation && !customGeometry)}
-                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:border-slate-700 text-white font-bold py-2.5 rounded shadow-lg transition-all flex items-center justify-center gap-2"
+                className="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 disabled:border-slate-700 text-white font-bold py-3 rounded-lg shadow-[0_0_20px_rgba(37,99,235,0.2)] transition-all flex items-center justify-center gap-2"
               >
-                {status === AnalysisStatus.LOADING ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity size={16} />}
+                {status === AnalysisStatus.LOADING ? <Loader2 className="w-5 h-5 animate-spin" /> : <Activity size={18} />}
                 Run Environmental Analysis
               </button>
             </div>
@@ -850,9 +873,9 @@ const App: React.FC = () => {
                               {catIndices.map(idx => {
                                 const avg = analysis.data.reduce((a, c) => a + (Number(c[idx.id]) || 0), 0) / 12;
                                 return (
-                                  <div key={idx.id} className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-800/50 hover:border-slate-700 transition-colors">
-                                    <div className="text-[10px] text-slate-500 truncate" title={idx.description}>{idx.name}</div>
-                                    <div className={`text-base font-bold ${cat === 'Vegetation' ? 'text-emerald-400' : cat === 'Water' ? 'text-sky-400' : cat === 'Burn' ? 'text-orange-500' : 'text-slate-300'}`}>
+                                  <div key={idx.id} className="bg-slate-900/50 p-3 rounded-xl border border-slate-700/50 hover:border-slate-600 hover:shadow-lg transition-all group">
+                                    <div className="text-[10px] text-slate-400 truncate group-hover:text-slate-300" title={idx.description}>{idx.name}</div>
+                                    <div className={`text-lg font-black tracking-tight ${cat === 'Vegetation' ? 'text-emerald-400' : cat === 'Water' ? 'text-sky-400' : cat === 'Burn' ? 'text-orange-500' : 'text-slate-200'}`}>
                                       {avg.toFixed(2)}
                                     </div>
                                   </div>
@@ -872,12 +895,14 @@ const App: React.FC = () => {
                       })}
                   </div>
 
-                  <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700 shadow-xl">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-xs font-bold text-white flex items-center gap-2"><ImageIcon size={14} className="text-blue-400" /> Selective GeoTIFF Export</h4>
-                      <div className="text-[10px] text-slate-500">{exportIndices.length} layers selected</div>
+                  <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-5 rounded-2xl border border-slate-700 shadow-2xl">
+                    <div className="flex items-center justify-between mb-4 border-b border-slate-700/50 pb-3">
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Activity size={16} className="text-emerald-400" /> Active Indices <span className="text-[10px] font-normal text-slate-400">(Chart & Export)</span>
+                      </h4>
+                      <div className="text-xs font-bold text-emerald-400 bg-emerald-900/30 px-2 py-1 rounded">{exportIndices.length} Selected</div>
                     </div>
-                    <div className="max-h-40 overflow-y-auto mb-4 pr-1 scrollbar-thin scrollbar-thumb-slate-700">
+                    <div className="max-h-48 overflow-y-auto mb-4 pr-2 scrollbar-thin scrollbar-thumb-slate-600 hover:scrollbar-thumb-slate-500">
                       <div className="grid grid-cols-2 gap-2">
                         {AVAILABLE_INDICES
                           .filter(i => !['rainfall', 'temperature'].includes(i.id))
@@ -903,14 +928,16 @@ const App: React.FC = () => {
                     <button
                       onClick={handleDownloadGeoTIFF}
                       disabled={isExporting || exportIndices.length === 0}
-                      className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 text-white text-xs font-bold py-2 rounded shadow-lg transition-all flex items-center justify-center gap-2"
+                      className="w-full bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:text-slate-600 text-slate-200 border border-slate-600 disabled:border-slate-800 text-xs font-bold py-2.5 rounded-lg shadow-lg transition-all flex items-center justify-center gap-2"
                     >
-                      {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                      {isExporting ? 'Generating Selective GeoTIFF...' : `Export ${exportIndices.length} Selected Indices`}
+                      {isExporting ? <Loader2 size={16} className="animate-spin text-emerald-400" /> : <Download size={16} className="text-blue-400" />}
+                      {isExporting ? 'Generating Multi-band GeoTIFF...' : `Export GeoTIFF (${exportIndices.length} bands)`}
                     </button>
                   </div>
 
-                  <DynamicIndexChart data={analysis.data} category={selectedDashboardCategory} />
+                  <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700/50 shadow-xl">
+                    <DynamicIndexChart data={analysis.data} category={selectedDashboardCategory} activeIndices={exportIndices} />
+                  </div>
                   <ClimateChart data={analysis.data} />
                   <LandCoverDonut data={analysis.landCover} />
                   <LULCChart data={analysis.landCover} />

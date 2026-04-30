@@ -18,19 +18,21 @@ import { MonthlyDataPoint, AVAILABLE_INDICES } from '../types';
 interface ChartProps {
   data: MonthlyDataPoint[];
   category?: string;
+  activeIndices?: string[];
 }
 
-export const DynamicIndexChart: React.FC<ChartProps> = ({ data, category = 'All' }) => {
+export const DynamicIndexChart: React.FC<ChartProps> = ({ data, category = 'All', activeIndices = [] }) => {
   const colors = [
     '#4ade80', '#22d3ee', '#3b82f6', '#f97316', '#a855f7', 
     '#fbbf24', '#f87171', '#e879f9', '#8b5cf6', '#6366f1',
     '#ec4899', '#14b8a6', '#f43f5e', '#84cc16', '#06b6d4'
   ];
 
+  // Only render indices that are both in the current category and actively selected by the user
   const chartIndices = AVAILABLE_INDICES.filter(idx => {
     if (['rainfall', 'temperature', 'pdsi', 'spei'].includes(idx.id)) return false;
-    if (category === 'All') return ['ndvi', 'ndwi', 'bsi', 'ndbi'].includes(idx.id); // Show top indices for 'All'
-    return idx.category === category;
+    if (category !== 'All' && idx.category !== category) return false;
+    return activeIndices.includes(idx.id);
   });
 
   return (
@@ -42,7 +44,7 @@ export const DynamicIndexChart: React.FC<ChartProps> = ({ data, category = 'All'
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
           <XAxis dataKey="month" stroke="#94a3b8" fontSize={10} tickLine={false} />
-          <YAxis stroke="#94a3b8" fontSize={10} domain={[-1, 1]} tickLine={false} />
+          <YAxis stroke="#94a3b8" fontSize={10} domain={['auto', 'auto']} tickLine={false} />
           <Tooltip 
             contentStyle={{ backgroundColor: '#1e293b', borderColor: '#475569', color: '#f1f5f9' }}
             itemStyle={{ color: '#e2e8f0' }}
