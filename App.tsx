@@ -525,7 +525,7 @@ const App: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 mb-1">
                 <Leaf className="w-6 h-6 text-emerald-500" />
-                <h1 className="text-xl font-bold text-white tracking-tight">EcoLens <span className="text-slate-500 font-normal">WebGIS</span></h1>
+                <h1 className="text-xl font-bold text-white tracking-tight">EcoLens WebGIS</h1>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-white" title="Close Sidebar">
