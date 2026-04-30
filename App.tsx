@@ -858,7 +858,7 @@ const App: React.FC = () => {
                       <div className="grid grid-cols-2 gap-2">
                         {AVAILABLE_INDICES
                           .filter(i => !['rainfall', 'temperature'].includes(i.id))
-                          .filter(i => analysisCategory === 'All' || i.category === analysisCategory)
+                          .filter(i => selectedDashboardCategory === 'All' || i.category === selectedDashboardCategory)
                           .map(idx => (
                             <label key={idx.id} className="flex items-center gap-2 p-1.5 rounded bg-slate-900/50 hover:bg-slate-900 border border-slate-800 cursor-pointer transition-all">
                               <input
