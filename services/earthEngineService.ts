@@ -361,7 +361,7 @@ export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLe
           const data = await new Promise<any>((res) => feature.evaluate((f: any) => res(f)));
           if (data && data.properties) {
             return { 
-              name: data.properties[asset.prop] || Object.values(data.properties)[0] + " (Tehsil)", 
+              name: (data.properties[asset.prop] || Object.values(data.properties)[0]) + " (Tehsil)", 
               geometry: data.geometry, 
               center: coords 
             };
@@ -433,15 +433,15 @@ export const getTehsils = async (district: string): Promise<{name: string, geome
     'projects/ee-pakistan-tehsil/assets/pak_admbnda_adm3_wfp_20220909'
   ];
   
+  // Broader property list for matching district names
+  const districtProps = ['adm2_name', 'NAME_2', 'ADM2_EN', 'DISTRICT', 'District', 'ADM2_NAME', 'NAME_1', 'ADM1_EN'];
+
   const fetchFilteredFromAsset = async (assetId: string) => {
-    const districtUpper = district.toUpperCase();
-    const districtProps = ['adm2_name', 'NAME_2', 'ADM2_EN', 'DISTRICT', 'District', 'ADM2_NAME'];
-    
     const col = ee.FeatureCollection(assetId);
     
-    // Server-side case-insensitive filter
+    // Create filters for the district name in multiple properties
     const filters = districtProps.map(prop => 
-       ee.Filter.stringContains(prop, district).or(ee.Filter.stringContains(prop, districtUpper))
+       ee.Filter.stringContains(prop, district).or(ee.Filter.stringContains(prop, district.toUpperCase()))
     );
     const districtFilter = ee.Filter.or(...filters);
     
@@ -459,37 +459,43 @@ export const getTehsils = async (district: string): Promise<{name: string, geome
     
     for (const assetId of assetsToTry) {
       try {
+        console.log(`Trying Tehsil asset: ${assetId} for district ${district}`);
         data = await fetchFilteredFromAsset(assetId as string);
-        if (data && data.features && data.features.length > 0) break;
+        if (data && data.features && data.features.length > 0) {
+          console.log(`Found ${data.features.length} Tehsils in ${assetId}`);
+          break;
+        }
       } catch (e) {
-        console.warn(`Failed to fetch from ${assetId}, trying next...`);
+        console.warn(`Failed to fetch from ${assetId}:`, e);
       }
     }
 
+    // Fallback: If filtered fails, try to fetch the whole collection and filter (last resort)
     if (!data || !data.features || data.features.length === 0) {
-      // Last resort: fetch all and filter locally (slow but works)
-      const fetchAllFromAsset = async (assetId: string) => {
-        return new Promise<any>((res, rej) => ee.FeatureCollection(assetId).evaluate((d: any, err: any) => err ? rej(err) : res(d)));
-      };
-      for (const assetId of assetsToTry) {
-        try {
-          const allData = await fetchAllFromAsset(assetId as string);
-          if (allData && allData.features) {
-            const filtered = allData.features.filter((f: any) => {
-               return Object.values(f.properties).some(v => String(v).toUpperCase().includes(district.toUpperCase()));
-            });
-            if (filtered.length > 0) {
-              data = { features: filtered };
-              break;
-            }
-          }
-        } catch (e) {}
-      }
+       console.log("No tehsils found with server filter. Trying local filter fallback...");
+       for (const assetId of assetsToTry) {
+         try {
+           const col = ee.FeatureCollection(assetId);
+           const result: any = await new Promise((res) => col.evaluate((d: any) => res(d)));
+           if (result && result.features) {
+             const filtered = result.features.filter((f: any) => {
+                return Object.values(f.properties).some(v => 
+                  String(v).toUpperCase().includes(district.toUpperCase())
+                );
+             });
+             if (filtered.length > 0) {
+               data = { features: filtered };
+               console.log(`Local filter found ${filtered.length} Tehsils in ${assetId}`);
+               break;
+             }
+           }
+         } catch (e) {}
+       }
     }
 
     if (!data || !data.features) return [];
 
-    const nameProps = ['adm3_name', 'NAME_3', 'ADM3_EN', 'TEHSIL', 'Tehsil', 'ADM3_NAME', 'NAME_2'];
+    const nameProps = ['adm3_name', 'NAME_3', 'ADM3_EN', 'TEHSIL', 'Tehsil', 'ADM3_NAME', 'NAME_2', 'adm3_en'];
     return data.features.map((f: any) => {
       const prop = nameProps.find(p => f.properties[p] !== undefined) || Object.keys(f.properties)[0];
       return { name: f.properties[prop] || 'Unknown Tehsil', geometry: f.geometry };
