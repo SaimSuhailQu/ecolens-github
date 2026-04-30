@@ -17,6 +17,7 @@ interface MapViewerProps {
   onDrawCreate: (geojson: any) => void;
   customGeometry: any;
   selectedRegion: RegionGeometry | null;
+  analysisCategory: string;
 }
 
 const LayerPlaceholder: React.FC = () => {
@@ -128,24 +129,26 @@ export const MapViewer: React.FC<MapViewerProps> = ({
           
           {analysis && (
             <>
-              {['Vegetation', 'Water', 'Burn', 'Urban', 'Geological', 'Climate'].map(category => {
-                const categoryIndices = AVAILABLE_INDICES.filter(idx => idx.category === category && !['rainfall', 'temperature', 'pdsi', 'spei'].includes(idx.id));
-                return categoryIndices.map(idx => {
-                  const viz = analysis.visualization?.[idx.id];
-                  const isDefaultChecked = activeOverlay ? activeOverlay.includes(idx.name) : (idx.id === 'ndvi');
-                  return (
-                    <LayersControl.Overlay key={idx.id} name={`[${category}] ${idx.name} (${analysis.locationName})`} checked={isDefaultChecked}>
-                      {viz?.url ? (
-                        <TileLayer url={viz.url} attribution="Google Earth Engine" opacity={1.0} />
-                      ) : (
-                        <LayerPlaceholder />
-                      )}
-                    </LayersControl.Overlay>
-                  );
-                });
-              })}
+              {['Vegetation', 'Water', 'Burn', 'Urban', 'Geological', 'Climate']
+                .filter(cat => analysisCategory === 'All' || cat === analysisCategory)
+                .map(category => {
+                  const categoryIndices = AVAILABLE_INDICES.filter(idx => idx.category === category && !['rainfall', 'temperature', 'pdsi', 'spei'].includes(idx.id));
+                  return categoryIndices.map(idx => {
+                    const viz = analysis.visualization?.[idx.id];
+                    const isDefaultChecked = activeOverlay ? activeOverlay.includes(idx.name) : (idx.id === 'ndvi');
+                    return (
+                      <LayersControl.Overlay key={idx.id} name={`[${category}] ${idx.name} (${analysis.locationName})`} checked={isDefaultChecked}>
+                        {viz?.url ? (
+                          <TileLayer url={viz.url} attribution="Google Earth Engine" opacity={1.0} />
+                        ) : (
+                          <LayerPlaceholder />
+                        )}
+                      </LayersControl.Overlay>
+                    );
+                  });
+                })}
               {/* Climate indices specifically */}
-              {['pdsi', 'spei'].map(id => {
+              {(analysisCategory === 'All' || analysisCategory === 'Climate') && ['pdsi', 'spei'].map(id => {
                 const idx = AVAILABLE_INDICES.find(i => i.id === id);
                 if (!idx) return null;
                 const viz = analysis.visualization?.[idx.id];
@@ -155,7 +158,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({
                   </LayersControl.Overlay>
                 );
               })}
-              {analysis.visualization?.lulc?.url && (
+              {(analysisCategory === 'All' || analysisCategory === 'Urban') && analysis.visualization?.lulc?.url && (
                 <LayersControl.Overlay name={`[Urban] LULC Land Cover (${analysis.locationName})`}>
                   <TileLayer url={analysis.visualization.lulc.url} attribution="Google Earth Engine" opacity={1.0} />
                 </LayersControl.Overlay>

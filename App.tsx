@@ -124,6 +124,12 @@ const App: React.FC = () => {
       setStatus(AnalysisStatus.SUCCESS);
       setSelectedDashboardCategory(analysisCategory);
       
+      // Update export indices to match the selected category
+      const catIndices = analysisCategory === 'All' 
+        ? ['ndvi', 'ndwi', 'bsi'] 
+        : AVAILABLE_INDICES.filter(i => i.category === analysisCategory).map(i => i.id);
+      setExportIndices(catIndices);
+      
       const defaultIndex = analysisCategory === 'All' ? 'ndvi' : (AVAILABLE_INDICES.find(i => i.category === analysisCategory)?.id || 'ndvi');
       setActiveOverlay(`${defaultIndex.toUpperCase()} (${result.locationName})`);
 
@@ -909,6 +915,7 @@ const App: React.FC = () => {
           onDrawCreate={handleDrawCreate}
           customGeometry={customGeometry}
           selectedRegion={selectedRegion}
+          analysisCategory={analysisCategory}
         />
       </main>
     </div>
