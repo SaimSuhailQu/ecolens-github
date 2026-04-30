@@ -237,21 +237,30 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
     const medianImage = imageCol.median().clip(geometry);
     const viz: any = {};
     
-    // OPTIMIZED: Only load the first index of the selected category by default
-    const defaultIndex = analysisCategory === 'All' ? 'ndvi' : (AVAILABLE_INDICES.find(i => i.category === analysisCategory)?.id || 'ndvi');
-    const idx = AVAILABLE_INDICES.find(i => i.id === defaultIndex);
-    
-    if (idx) {
-      const img = getIndexExpression(idx.id, bands, medianImage);
+    // Filter indices based on category
+    const categoryIndices = AVAILABLE_INDICES.filter(i => {
+      if (analysisCategory === 'All') return i.id === 'ndvi'; // Only NDVI for 'All' to avoid heavy request
+      return i.category === analysisCategory;
+    });
+
+    await Promise.all(categoryIndices.map(async (idx) => {
+      let img;
+      if (idx.id === 'pdsi' || idx.id === 'spei') {
+         const droughtImg = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(startDate, endDate).filterBounds(geometry).median();
+         img = idx.id === 'pdsi' ? droughtImg.select('pdsi') : droughtImg.expression('pr-pet',{pr:droughtImg.select('pr'),pet:droughtImg.select('pet')});
+      } else {
+         img = getIndexExpression(idx.id, bands, medianImage);
+      }
+
       if (img) {
         const palette = idx.category === 'Vegetation' ? ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] : 
                       idx.category === 'Water' ? ['red', 'yellow', 'green', 'cyan', 'blue'] : 
                       idx.category === 'Burn' ? ['#7a5230', '#d5a478', '#fff5d7', '#d4e7b0', '#397d49'] : 
-                      ['#008000', '#ffff00', '#ff0000'];
-        const vis = { min: -1, max: 1, palette };
+                      idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
+        const vis = { min: idx.category === 'Climate' ? -10 : -1, max: idx.category === 'Climate' ? 10 : 1, palette };
         viz[idx.id] = await new Promise(r => img.getMap(vis, (o: any) => r(o ? { mapId: o.mapid, url: o.urlFormat } : null)));
       }
-    }
+    }));
     
     viz.tiffDownloadUrl = await getTiffUrlWithRetry(medianImage, 'export', geometry, resolution);
     return viz;
