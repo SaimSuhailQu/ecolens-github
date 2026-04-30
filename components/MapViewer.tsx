@@ -77,17 +77,20 @@ const RegionLayer: React.FC<{ analysis: RegionAnalysis | null, customGeometry: a
   return targetGeometry ? <GeoJSON key={JSON.stringify(targetGeometry.coordinates?.[0]?.[0])} data={targetGeometry} style={{ color: '#10b981', weight: 2, fillOpacity: 0.1 }} /> : null;
 };
 
-export const MapViewer: React.FC<MapViewerProps> = ({ 
-  onLocationSelect, 
-  analysis, 
-  activeOverlay, 
-  onOverlayAdd, 
-  onOverlayRemove,
-  drawingMode,
-  onDrawCreate,
-  customGeometry,
-  selectedRegion
-}) => {
+export const MapViewer: React.FC<MapViewerProps> = (props) => {
+  const { 
+    onLocationSelect, 
+    analysis, 
+    activeOverlay, 
+    onOverlayAdd, 
+    onOverlayRemove,
+    drawingMode,
+    onDrawCreate,
+    customGeometry,
+    selectedRegion,
+    analysisCategory
+  } = props;
+
   const getVisParams = () => {
     if (!activeOverlay) return null;
     const cleanName = activeOverlay.split(' (')[0].toLowerCase();
