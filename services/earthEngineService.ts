@@ -184,10 +184,8 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
         const s = img.reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 27830, bestEffort: true });
         return ee.Feature(null, { m: img.date().format('MM'), t: s.get('temperature_2m'), r: s.get('total_precipitation_sum') });
       });
-      stats.aggregate_array('m').evaluate((months: any) => {
-        stats.evaluate((features: any) => {
-           res(features?.features?.map((f: any) => f.properties) || []);
-        });
+      stats.evaluate((features: any) => {
+        res(features?.features?.map((f: any) => f.properties) || []);
       });
     }),
     new Promise<any>(res => {
@@ -201,17 +199,31 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
       });
     }),
     new Promise<any>(res => {
-      const monthlyList = months.map(m => {
-        const monthlyImg = imageCol.filter(ee.Filter.calendarRange(Number(m), Number(m), 'month')).median();
+      // OPTIMIZED: Use server-side mapping for all months at once
+      const statsList = ee.List.sequence(1, 12).map((m: any) => {
+        const month = ee.Number(m);
+        const monthlyImg = imageCol.filter(ee.Filter.calendarRange(month, month, 'month')).median();
+        
         let all = ee.Image([]);
-        AVAILABLE_INDICES.filter(i => !['rainfall','temperature','pdsi','spei'].includes(i.id)).forEach(i => {
-          const idx = getIndexExpression(i.id, bands, monthlyImg);
-          if (idx) all = all.addBands(idx.rename(i.id));
+        AVAILABLE_INDICES
+          .filter(i => !['rainfall','temperature','pdsi','spei'].includes(i.id))
+          .forEach(i => {
+            const idx = getIndexExpression(i.id, bands, monthlyImg);
+            if (idx) all = all.addBands(idx.rename(i.id));
+          });
+        
+        const stats = all.reduceRegion({ 
+          reducer: ee.Reducer.mean(), 
+          geometry, 
+          scale: scale > 100 ? scale : 100, // Coarser scale for faster chart data
+          bestEffort: true,
+          maxPixels: 1e9
         });
-        const stats = all.reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale, bestEffort: true });
-        return ee.Feature(null, stats.set('m', m));
+        
+        return ee.Feature(null, stats.set('m', ee.Number(m).format('%02d')));
       });
-      ee.FeatureCollection(monthlyList).evaluate((features: any) => {
+      
+      ee.FeatureCollection(statsList).evaluate((features: any) => {
         res(features?.features?.map((f: any) => f.properties) || []);
       });
     })
@@ -220,19 +232,19 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
   const runVisualizationAnalysis = async () => {
     const medianImage = imageCol.median().clip(geometry);
     const viz: any = {};
-    const promises = AVAILABLE_INDICES.filter(i => !['rainfall','temperature'].includes(i.id)).map(async (idx) => {
-        let img = idx.id === 'pdsi' || idx.id === 'spei' ? 
-            (idx.id === 'pdsi' ? droughtCol.median().select('pdsi') : droughtCol.median().expression('pr-pet',{pr:droughtCol.median().select('pr'),pet:droughtCol.median().select('pet')})) : 
-            getIndexExpression(idx.id, bands, medianImage);
-        if (!img) return;
-        const palette = idx.category === 'Vegetation' ? ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] : 
-                      idx.category === 'Water' ? ['red', 'yellow', 'green', 'cyan', 'blue'] : 
-                      idx.category === 'Burn' ? ['#7a5230', '#d5a478', '#fff5d7', '#d4e7b0', '#397d49'] : 
-                      idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
-        const vis = { min: idx.category === 'Climate' ? -10 : -1, max: idx.category === 'Climate' ? 10 : 1, palette };
+    
+    // OPTIMIZED: Only load NDVI by default to speed up initial response
+    const defaultIndex = 'ndvi';
+    const idx = AVAILABLE_INDICES.find(i => i.id === defaultIndex);
+    
+    if (idx) {
+      const img = getIndexExpression(idx.id, bands, medianImage);
+      if (img) {
+        const vis = { min: -1, max: 1, palette: ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] };
         viz[idx.id] = await new Promise(r => img.getMap(vis, (o: any) => r(o ? { mapId: o.mapid, url: o.urlFormat } : null)));
-    });
-    await Promise.all(promises);
+      }
+    }
+    
     viz.tiffDownloadUrl = await getTiffUrlWithRetry(medianImage, 'export', geometry, resolution);
     return viz;
   };
@@ -251,48 +263,32 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
     return d;
   });
 
-  const geeScript = `// EcoLens WebGIS - Analysis Script
-// Region: ${region.name}
-// Year: ${year}
-// Resolution: ${resolution}m
+  const metadata = { resolution, startDate, endDate, bands, imageColId: resolution === 10 ? 'COPERNICUS/S2_SR' : 'LANDSAT/LC08/C02/T1_L2' };
 
+  const geeScript = `// EcoLens WebGIS - Analysis Script
 var geometry = ${JSON.stringify(geometry)};
 var startDate = '${startDate}';
 var endDate = '${endDate}';
-
-// Load Collections
-var s2 = ee.ImageCollection('COPERNICUS/S2_SR')
+var s2 = ee.ImageCollection('${metadata.imageColId}')
   .filterBounds(geometry)
   .filterDate(startDate, endDate)
   .median()
   .clip(geometry);
-
-// Band Mapping for Sentinel-2
-var bands = { 
-  blue: 'B2', green: 'B3', red: 'B4', nir: 'B8', 
-  swir1: 'B11', swir2: 'B12', re1: 'B5', re2: 'B6', re3: 'B7' 
-};
-
-// Calculate Primary Index (NDVI Example)
+var bands = ${JSON.stringify(bands)};
 var ndvi = s2.expression('(NIR - RED) / (NIR + RED)', {
   'NIR': s2.select(bands.nir),
   'RED': s2.select(bands.red)
 }).rename('NDVI');
-
 Map.centerObject(geometry, 12);
-Map.addLayer(s2, {bands: ['B4', 'B3', 'B2'], min: 0, max: 3000}, 'Natural Color');
+Map.addLayer(s2, {bands: [bands.red, bands.green, bands.blue], min: 0, max: 3000}, 'Natural Color');
 Map.addLayer(ndvi, {min: -1, max: 1, palette: ['red', 'white', 'green']}, 'NDVI');
-
-// Statistics
 var stats = ndvi.reduceRegion({
   reducer: ee.Reducer.mean(),
   geometry: geometry,
   scale: ${resolution},
   maxPixels: 1e9
 });
-
-print('Mean NDVI for ${region.name}:', stats.get('NDVI'));
-`;
+print('Mean NDVI:', stats.get('NDVI'));`;
 
   return { 
     coordinates: region.center, 
@@ -302,14 +298,33 @@ print('Mean NDVI for ${region.name}:', stats.get('NDVI'));
     geeScript, 
     tiffDownloadUrl: vizData.tiffDownloadUrl, 
     landCover: lulc.data, 
-    visualization: { ...vizData, lulc: lulc.visualization }, 
+    visualization: { ...vizData, lulc: lulc.visualization, _metadata: metadata }, 
     regionGeometry: region.geometry 
   };
 };
 
-// Optional: Set this to your custom GEE Asset ID for Tehsil boundaries if you have one uploaded.
+export const getLazyMapId = async (indexId: string, regionGeometry: any, metadata: any): Promise<{ mapId: string; url: string } | null> => {
+  if (!isInitialized) return null;
+  const geometry = ee.Geometry(validateAndCleanGeometry(regionGeometry));
+  const imageCol = ee.ImageCollection(metadata.imageColId).filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry);
+  const medianImage = imageCol.median().clip(geometry);
+  const idx = AVAILABLE_INDICES.find(i => i.id === indexId);
+  if (!idx) return null;
+  let img = idx.id === 'pdsi' || idx.id === 'spei' ? 
+      (idx.id === 'pdsi' ? ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().select('pdsi') : 
+       ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().expression('pr-pet',{pr:ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().select('pr'),pet:ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().select('pet')})) : 
+      getIndexExpression(idx.id, metadata.bands, medianImage);
+  if (!img) return null;
+  const palette = idx.category === 'Vegetation' ? ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] : 
+                idx.category === 'Water' ? ['red', 'yellow', 'green', 'cyan', 'blue'] : 
+                idx.category === 'Burn' ? ['#7a5230', '#d5a478', '#fff5d7', '#d4e7b0', '#397d49'] : 
+                idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
+  const vis = { min: idx.category === 'Climate' ? -10 : -1, max: idx.category === 'Climate' ? 10 : 1, palette };
+  return await new Promise(r => img.getMap(vis, (o: any) => r(o ? { mapId: o.mapid, url: o.urlFormat } : null)));
+};
+
 const CUSTOM_TEHSIL_ASSET = 'projects/ee-saimsuhail5/assets/pak_tehsils'; 
-const CUSTOM_TEHSIL_PROPS = ['adm3_name', 'ADM3_EN', 'NAME_3', 'tehsil', 'TEHSIL', 'name']; // Common name properties
+const CUSTOM_TEHSIL_PROPS = ['adm3_name', 'ADM3_EN', 'NAME_3', 'tehsil', 'TEHSIL', 'name'];
 
 export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLevel): Promise<RegionGeometry | null> => {
   if (level === 'custom') return null;
@@ -337,7 +352,8 @@ export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLe
       );
     }
 
-      for (const asset of tehsilAssets) {
+      // OPTIMIZED: Parallelized Tehsil checks
+      const results = await Promise.all(tehsilAssets.map(async (asset) => {
         try {
           const collection = ee.FeatureCollection(asset.id);
           const feature = collection.filterBounds(point).first();
@@ -350,9 +366,13 @@ export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLe
             };
           }
         } catch (err) {
-          console.warn(`Failed to fetch from ${asset.id}, trying next...`);
+          return null;
         }
-      }
+        return null;
+      }));
+
+      const successfulResult = results.find(r => r !== null);
+      if (successfulResult) return successfulResult;
 
       // Fallback if no specialized Tehsil found
       collectionId = 'FAO/GAUL/2015/level2';
@@ -404,63 +424,46 @@ export const getDistricts = async (province: string): Promise<string[]> => {
   return names;
 };
 
+
+
 export const getTehsils = async (district: string): Promise<{name: string, geometry: any}[]> => {
   const customAssetId = CUSTOM_TEHSIL_ASSET;
-  const fallbackAssetId = 'WFP/SPIDER/PCODE/PAK/Tehsil';
+  const fallbackAssetId = 'projects/ee-ocha-pakistan/assets/pak_admbnda_adm3_wfp_20220909';
   
-  const fetchFromAsset = async (assetId: string) => {
-    const col = ee.FeatureCollection(assetId);
+  const fetchFilteredFromAsset = async (assetId: string) => {
+    const districtProps = ['adm2_name', 'NAME_2', 'ADM2_EN', 'DISTRICT', 'District', 'ADM2_NAME', 'NAME_1', 'ADM1_EN'];
+    const filters = districtProps.map(prop => ee.Filter.eq(prop, district));
+    const districtFilter = ee.Filter.or(...filters);
+    const col = ee.FeatureCollection(assetId).filter(districtFilter);
+    
     return new Promise<any>((res, rej) => {
-      col.evaluate((d: any, err: any) => {
-        if (err) rej(err);
-        else res(d);
-      });
+      col.evaluate((d: any, err: any) => err ? rej(err) : res(d));
     });
   };
 
   try {
     let data: any = null;
-    if (customAssetId) {
-      try {
-        data = await fetchFromAsset(customAssetId);
-      } catch (e) {
-        console.error(`Failed to access custom asset "${customAssetId}":`, e);
-        console.warn("Falling back to public OCHA Pakistan Tehsil dataset...");
-        data = await fetchFromAsset(fallbackAssetId);
-      }
-    } else {
-      data = await fetchFromAsset(fallbackAssetId);
+    try {
+      data = await fetchFilteredFromAsset(customAssetId || fallbackAssetId);
+    } catch (e) {
+      if (customAssetId) data = await fetchFilteredFromAsset(fallbackAssetId);
+      else throw e;
     }
 
-    if (!data || !data.features) {
-      return [];
-    }
-
-    const districtUpper = district.toUpperCase();
-    const districtProps = ['adm2_name', 'NAME_2', 'ADM2_EN', 'DISTRICT', 'District', 'ADM2_NAME', 'NAME_1', 'ADM1_EN', 'NAME_3'];
-    const nameProps = ['adm3_name', 'NAME_3', 'ADM3_EN', 'TEHSIL', 'Tehsil', 'ADM3_NAME', 'NAME_2'];
-    
-    console.log(`Successfully loaded ${data.features.length} tehsils. Filtering for district: "${district}"...`);
-
-    const filteredFeatures = data.features.filter((f: any) => {
-      const match = districtProps.some(prop => {
-        const val = f.properties[prop];
-        if (!val) return false;
-        const valUpper = String(val).toUpperCase();
-        // Check both directions: "Bagh District" includes "Bagh" OR "Bagh" includes "Bagh District" (rare but safe)
-        return valUpper.includes(districtUpper) || districtUpper.includes(valUpper);
-      });
-      return match;
-    });
-
-    console.log(`Filter complete. Found ${filteredFeatures.length} matching tehsils.`);
-
-    return filteredFeatures.map((f: any) => {
-      const prop = nameProps.find(p => f.properties[p] !== undefined) || nameProps[0];
-      return {
-        name: f.properties[prop] || 'Unknown Tehsil',
-        geometry: f.geometry
+    if (!data || !data.features || data.features.length === 0) {
+      const fetchFuzzyFromAsset = async (assetId: string) => {
+        const col = ee.FeatureCollection(assetId).filter(ee.Filter.stringContains('ADM2_EN', district));
+        return new Promise<any>((res, rej) => col.evaluate((d: any, err: any) => err ? rej(err) : res(d)));
       };
+      try { data = await fetchFuzzyFromAsset(fallbackAssetId); } catch(e) {}
+    }
+
+    if (!data || !data.features) return [];
+
+    const nameProps = ['adm3_name', 'NAME_3', 'ADM3_EN', 'TEHSIL', 'Tehsil', 'ADM3_NAME', 'NAME_2'];
+    return data.features.map((f: any) => {
+      const prop = nameProps.find(p => f.properties[p] !== undefined) || nameProps[0];
+      return { name: f.properties[prop] || 'Unknown Tehsil', geometry: f.geometry };
     }).sort((a: any, b: any) => a.name.localeCompare(b.name));
   } catch (err) {
     console.error("Critical error in getTehsils:", err);

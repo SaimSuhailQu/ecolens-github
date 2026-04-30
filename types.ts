@@ -87,7 +87,7 @@ export interface RegionAnalysis {
     color: string;
   }[];
   visualization?: {
-    [key: string]: { mapId: string; url: string } | null | undefined;
+    [key: string]: any; 
   };
   regionGeometry?: any; 
   isCustom?: boolean;

@@ -4,7 +4,7 @@ import { VegetationChart, ClimateChart } from './components/Charts';
 import { LandCoverDonut } from './components/LandCoverDonut';
 import { LULCChart } from './components/LULCChart';
 import { CodeBlock } from './components/CodeBlock';
-import { analyzeRegionWithGEE, initializeGEE, getRegionFromCoords, getExportUrl, getCountries, getProvinces, getDistricts, getTehsils } from './services/earthEngineService';
+import { analyzeRegionWithGEE, initializeGEE, getRegionFromCoords, getExportUrl, getCountries, getProvinces, getDistricts, getTehsils, getLazyMapId } from './services/earthEngineService';
 import { Coordinates, RegionAnalysis, AnalysisStatus, AnalysisLevel, AVAILABLE_INDICES, RegionGeometry } from './types';
 import toGeoJSON from 'togeojson';
 import shp from 'shpjs';
@@ -339,8 +339,38 @@ const App: React.FC = () => {
     // No auto-trigger anymore
   }
 
-  const handleOverlayAdd = (name: string) => {
+  const handleOverlayAdd = async (name: string) => {
     setActiveOverlay(name);
+    
+    // Lazy loading logic
+    if (analysis && analysis.visualization) {
+      // Extract index ID from names like "[Vegetation] NDVI (Region Name)"
+      const match = name.match(/\[(.*?)\] (.*?) \(/);
+      if (match) {
+        const indexName = match[2].trim();
+        const idxInfo = AVAILABLE_INDICES.find(i => i.name === indexName || i.id === indexName.toLowerCase());
+        
+        if (idxInfo && !analysis.visualization[idxInfo.id]) {
+          try {
+            const viz = await getLazyMapId(idxInfo.id, analysis.regionGeometry, (analysis.visualization as any)._metadata);
+            if (viz) {
+              setAnalysis(prev => {
+                if (!prev) return null;
+                return {
+                  ...prev,
+                  visualization: {
+                    ...prev.visualization,
+                    [idxInfo.id]: viz
+                  }
+                };
+              });
+            }
+          } catch (error) {
+            console.error(`Failed to lazy load map for ${indexName}:`, error);
+          }
+        }
+      }
+    }
   };
 
   const handleOverlayRemove = (name: string) => {

@@ -19,6 +19,10 @@ interface MapViewerProps {
   selectedRegion: RegionGeometry | null;
 }
 
+const LayerPlaceholder: React.FC = () => {
+  return null; // Invisible layer until URL is loaded
+};
+
 const MapEvents: React.FC<{ 
   onSelect: (c: Coordinates) => void; 
   onOverlayAdd: (name: string) => void; 
@@ -86,7 +90,7 @@ export const MapViewer: React.FC<MapViewerProps> = ({
   const getVisParams = () => {
     if (!activeOverlay) return null;
     const cleanName = activeOverlay.split(' (')[0].toLowerCase();
-    const idx = AVAILABLE_INDICES.find(i => i.id === cleanName || i.name.toLowerCase() === cleanName);
+    const idx = AVAILABLE_INDICES.find(i => i.id === cleanName || i.name.toLowerCase() === cleanName || activeOverlay.includes(i.name));
     
     if (activeOverlay.startsWith('LULC')) {
       return { 
@@ -122,21 +126,35 @@ export const MapViewer: React.FC<MapViewerProps> = ({
             <RegionLayer analysis={analysis} customGeometry={customGeometry} selectedRegion={selectedRegion} />
           </LayersControl.Overlay>
           
-          {analysis && analysis.visualization && (
+          {analysis && (
             <>
               {['Vegetation', 'Water', 'Burn', 'Urban', 'Geological', 'Climate'].map(category => {
-                const categoryIndices = AVAILABLE_INDICES.filter(idx => idx.category === category);
+                const categoryIndices = AVAILABLE_INDICES.filter(idx => idx.category === category && !['rainfall', 'temperature', 'pdsi', 'spei'].includes(idx.id));
                 return categoryIndices.map(idx => {
                   const viz = analysis.visualization?.[idx.id];
-                  if (!viz?.url) return null;
                   return (
                     <LayersControl.Overlay key={idx.id} name={`[${category}] ${idx.name} (${analysis.locationName})`} checked={idx.id === 'ndvi'}>
-                      <TileLayer url={viz.url} attribution="Google Earth Engine" opacity={1.0} />
+                      {viz?.url ? (
+                        <TileLayer url={viz.url} attribution="Google Earth Engine" opacity={1.0} />
+                      ) : (
+                        <LayerPlaceholder />
+                      )}
                     </LayersControl.Overlay>
                   );
                 });
               })}
-              {analysis.visualization.lulc?.url && (
+              {/* Climate indices specifically */}
+              {['pdsi', 'spei'].map(id => {
+                const idx = AVAILABLE_INDICES.find(i => i.id === id);
+                if (!idx) return null;
+                const viz = analysis.visualization?.[idx.id];
+                return (
+                  <LayersControl.Overlay key={idx.id} name={`[Climate] ${idx.name} (${analysis.locationName})`}>
+                    {viz?.url ? <TileLayer url={viz.url} attribution="Google Earth Engine" opacity={1.0} /> : <LayerPlaceholder />}
+                  </LayersControl.Overlay>
+                );
+              })}
+              {analysis.visualization?.lulc?.url && (
                 <LayersControl.Overlay name={`[Urban] LULC Land Cover (${analysis.locationName})`}>
                   <TileLayer url={analysis.visualization.lulc.url} attribution="Google Earth Engine" opacity={1.0} />
                 </LayersControl.Overlay>
