@@ -548,11 +548,14 @@ const App: React.FC = () => {
                 <Globe size={14} className="text-cyan-500" />
               </div>
               <input
+                id="global-search"
+                name="global-search"
                 type="text"
                 placeholder="Global Search (Worldwide)..."
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value, 'global')}
                 className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-full py-2 pl-9 pr-4 focus:ring-2 focus:ring-cyan-500/50 outline-none placeholder:text-slate-600 transition-all"
+                aria-label="Global Search"
               />
               {isSearching === 'global' && (
                 <div className="absolute right-3 top-2">
@@ -576,11 +579,14 @@ const App: React.FC = () => {
                 <Search size={14} className="text-emerald-500" />
               </div>
               <input
+                id="local-search"
+                name="local-search"
                 type="text"
                 placeholder={`Search in ${selectedCountry}...`}
                 value={localSearchQuery}
                 onChange={(e) => handleSearch(e.target.value, 'local')}
                 className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-full py-2 pl-9 pr-4 focus:ring-2 focus:ring-emerald-500/50 outline-none placeholder:text-slate-600 transition-all"
+                aria-label={`Search in ${selectedCountry}`}
               />
               {isSearching === 'local' && (
                 <div className="absolute right-3 top-2">
@@ -604,8 +610,8 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-5 scroll-smooth custom-scrollbar">
           <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-slate-800/20 border border-slate-800 rounded-xl">
             <div>
-              <label className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Globe size={14} className="text-cyan-400" /> Admin Level</label>
-              <select value={analysisLevel} onChange={handleLevelChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50">
+              <label htmlFor="admin-level" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Globe size={14} className="text-cyan-400" /> Admin Level</label>
+              <select id="admin-level" name="admin-level" value={analysisLevel} onChange={handleLevelChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50">
                 <option value="0">Level 0 (Country)</option>
                 <option value="1">Level 1 (Province/State)</option>
                 <option value="2">Level 2 (District/County)</option>
@@ -614,21 +620,23 @@ const App: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> Year</label>
-              <select value={selectedYear} onChange={handleYearChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50">
+              <label htmlFor="year-select" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> Year</label>
+              <select id="year-select" name="year-select" value={selectedYear} onChange={handleYearChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50">
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Search size={14} className="text-cyan-400" /> Resolution</label>
-              <select value={resolution} onChange={handleResolutionChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50">
+              <label htmlFor="res-select" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Search size={14} className="text-cyan-400" /> Resolution</label>
+              <select id="res-select" name="res-select" value={resolution} onChange={handleResolutionChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50">
                 <option value="10">10m (Sentinel-2)</option>
                 <option value="30">30m (Landsat 8/9)</option>
               </select>
             </div>
             <div className="col-span-3">
-              <label className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Activity size={14} className="text-cyan-400" /> Analysis Category (Speed Focus)</label>
+              <label htmlFor="analysis-category" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Activity size={14} className="text-cyan-400" /> Analysis Category (Speed Focus)</label>
               <select 
+                id="analysis-category"
+                name="analysis-category"
                 value={analysisCategory} 
                 onChange={(e) => setAnalysisCategory(e.target.value)} 
                 disabled={!isGeeReady || status === AnalysisStatus.LOADING}
@@ -646,12 +654,12 @@ const App: React.FC = () => {
             </div>
             <div className="col-span-3 grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> Start Date</label>
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} onBlur={handleDateChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50" />
+                <label htmlFor="start-date" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> Start Date</label>
+                <input id="start-date" name="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} onBlur={handleDateChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50" />
               </div>
               <div>
-                <label className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> End Date</label>
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} onBlur={handleDateChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50" />
+                <label htmlFor="end-date" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Calendar size={14} className="text-cyan-400" /> End Date</label>
+                <input id="end-date" name="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} onBlur={handleDateChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50" />
               </div>
             </div>
 
@@ -664,7 +672,10 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-2">
+                  <label htmlFor="country-select" className="sr-only">Select Country</label>
                   <select
+                    id="country-select"
+                    name="country-select"
                     value={selectedCountry}
                     onChange={(e) => handleCountryChange(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-3 py-2 outline-none hover:bg-slate-800 transition-colors"
@@ -673,7 +684,10 @@ const App: React.FC = () => {
                     {countries.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
 
+                  <label htmlFor="province-select" className="sr-only">Select Province</label>
                   <select
+                    id="province-select"
+                    name="province-select"
                     value={selectedProv}
                     onChange={(e) => handleProvChange(e.target.value)}
                     disabled={!selectedCountry || (provinces.length === 0 && !isHierarchyLoading)}
@@ -683,7 +697,10 @@ const App: React.FC = () => {
                     {provinces.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
 
+                  <label htmlFor="district-select" className="sr-only">Select District</label>
                   <select
+                    id="district-select"
+                    name="district-select"
                     value={selectedDist}
                     onChange={(e) => handleDistChange(e.target.value)}
                     disabled={!selectedProv || (districts.length === 0 && !isHierarchyLoading)}
@@ -693,7 +710,10 @@ const App: React.FC = () => {
                     {districts.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
 
+                  <label htmlFor="tehsil-select" className="sr-only">Select Tehsil</label>
                   <select
+                    id="tehsil-select"
+                    name="tehsil-select"
                     value={selectedTeh}
                     onChange={(e) => handleTehChange(e.target.value)}
                     disabled={!selectedDist || (tehsils.length === 0 && !isHierarchyLoading)}
@@ -714,9 +734,9 @@ const App: React.FC = () => {
                 >
                   <Square size={14} /> {drawingMode ? 'Cancel Drawing' : 'Draw Polygon'}
                 </button>
-                <label className="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded border bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 cursor-pointer transition-all">
+                <label htmlFor="file-import" className="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded border bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 cursor-pointer transition-all">
                   <Download size={14} className="rotate-180" /> Import File
-                  <input type="file" onChange={handleFileUpload} accept=".kml,.kmz,.zip,.json,.geojson" className="hidden" />
+                  <input id="file-import" name="file-import" type="file" onChange={handleFileUpload} accept=".kml,.kmz,.zip,.json,.geojson" className="hidden" />
                 </label>
               </div>
 
@@ -799,7 +819,10 @@ const App: React.FC = () => {
               {activeTab === 'dashboard' ? (
                 <div className="space-y-6" ref={dashboardRef}>
                   <div className="flex items-center gap-2 px-1">
+                    <label htmlFor="dashboard-category-select" className="sr-only">Select Dashboard Category</label>
                     <select
+                      id="dashboard-category-select"
+                      name="dashboard-category-select"
                       value={selectedDashboardCategory}
                       onChange={(e) => setSelectedDashboardCategory(e.target.value)}
                       className="bg-slate-800 border border-slate-700 text-slate-200 text-[10px] rounded px-2 py-1 outline-none hover:bg-slate-700 transition-colors"
@@ -860,8 +883,10 @@ const App: React.FC = () => {
                           .filter(i => !['rainfall', 'temperature'].includes(i.id))
                           .filter(i => selectedDashboardCategory === 'All' || i.category === selectedDashboardCategory)
                           .map(idx => (
-                            <label key={idx.id} className="flex items-center gap-2 p-1.5 rounded bg-slate-900/50 hover:bg-slate-900 border border-slate-800 cursor-pointer transition-all">
+                            <label key={idx.id} htmlFor={`export-${idx.id}`} className="flex items-center gap-2 p-1.5 rounded bg-slate-900/50 hover:bg-slate-900 border border-slate-800 cursor-pointer transition-all">
                               <input
+                                id={`export-${idx.id}`}
+                                name={`export-${idx.id}`}
                                 type="checkbox"
                                 checked={exportIndices.includes(idx.id)}
                                 onChange={(e) => {
