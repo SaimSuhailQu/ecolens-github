@@ -348,7 +348,8 @@ export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLe
         { id: 'projects/ee-ocha-pakistan/assets/pak_admbnda_adm3_wfp_20220909', prop: 'ADM3_EN' },
         { id: 'projects/ee-pakistan-tehsil/assets/pak_admbnda_adm3_wfp_20220909', prop: 'ADM3_EN' },
         { id: 'projects/ee-gadm/assets/gadm41_PAK_3', prop: 'NAME_3' },
-        { id: 'WM/GeoLab/GeoBoundaries/600/ADM3', prop: 'shapeName' }
+        { id: 'WM/GeoLab/GeoBoundaries/600/ADM3', prop: 'shapeName' },
+        { id: 'WFP/SPIDER/PCODE/PAK/Tehsil', prop: 'tehsil' }
       );
     }
 
@@ -360,7 +361,7 @@ export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLe
           const data = await new Promise<any>((res) => feature.evaluate((f: any) => res(f)));
           if (data && data.properties) {
             return { 
-              name: data.properties[asset.prop] + " (Tehsil)", 
+              name: data.properties[asset.prop] || Object.values(data.properties)[0] + " (Tehsil)", 
               geometry: data.geometry, 
               center: coords 
             };
@@ -424,45 +425,73 @@ export const getDistricts = async (province: string): Promise<string[]> => {
   return names;
 };
 
-
-
 export const getTehsils = async (district: string): Promise<{name: string, geometry: any}[]> => {
   const customAssetId = CUSTOM_TEHSIL_ASSET;
-  const fallbackAssetId = 'projects/ee-ocha-pakistan/assets/pak_admbnda_adm3_wfp_20220909';
+  const fallbackAssetIds = [
+    'projects/ee-ocha-pakistan/assets/pak_admbnda_adm3_wfp_20220909',
+    'WFP/SPIDER/PCODE/PAK/Tehsil',
+    'projects/ee-pakistan-tehsil/assets/pak_admbnda_adm3_wfp_20220909'
+  ];
   
   const fetchFilteredFromAsset = async (assetId: string) => {
-    const districtProps = ['adm2_name', 'NAME_2', 'ADM2_EN', 'DISTRICT', 'District', 'ADM2_NAME', 'NAME_1', 'ADM1_EN'];
-    const filters = districtProps.map(prop => ee.Filter.eq(prop, district));
+    const districtUpper = district.toUpperCase();
+    const districtProps = ['adm2_name', 'NAME_2', 'ADM2_EN', 'DISTRICT', 'District', 'ADM2_NAME'];
+    
+    const col = ee.FeatureCollection(assetId);
+    
+    // Server-side case-insensitive filter
+    const filters = districtProps.map(prop => 
+       ee.Filter.stringContains(prop, district).or(ee.Filter.stringContains(prop, districtUpper))
+    );
     const districtFilter = ee.Filter.or(...filters);
-    const col = ee.FeatureCollection(assetId).filter(districtFilter);
     
     return new Promise<any>((res, rej) => {
-      col.evaluate((d: any, err: any) => err ? rej(err) : res(d));
+      col.filter(districtFilter).evaluate((d: any, err: any) => {
+        if (err) rej(err);
+        else res(d);
+      });
     });
   };
 
   try {
     let data: any = null;
-    try {
-      data = await fetchFilteredFromAsset(customAssetId || fallbackAssetId);
-    } catch (e) {
-      if (customAssetId) data = await fetchFilteredFromAsset(fallbackAssetId);
-      else throw e;
+    const assetsToTry = [customAssetId, ...fallbackAssetIds].filter(Boolean);
+    
+    for (const assetId of assetsToTry) {
+      try {
+        data = await fetchFilteredFromAsset(assetId as string);
+        if (data && data.features && data.features.length > 0) break;
+      } catch (e) {
+        console.warn(`Failed to fetch from ${assetId}, trying next...`);
+      }
     }
 
     if (!data || !data.features || data.features.length === 0) {
-      const fetchFuzzyFromAsset = async (assetId: string) => {
-        const col = ee.FeatureCollection(assetId).filter(ee.Filter.stringContains('ADM2_EN', district));
-        return new Promise<any>((res, rej) => col.evaluate((d: any, err: any) => err ? rej(err) : res(d)));
+      // Last resort: fetch all and filter locally (slow but works)
+      const fetchAllFromAsset = async (assetId: string) => {
+        return new Promise<any>((res, rej) => ee.FeatureCollection(assetId).evaluate((d: any, err: any) => err ? rej(err) : res(d)));
       };
-      try { data = await fetchFuzzyFromAsset(fallbackAssetId); } catch(e) {}
+      for (const assetId of assetsToTry) {
+        try {
+          const allData = await fetchAllFromAsset(assetId as string);
+          if (allData && allData.features) {
+            const filtered = allData.features.filter((f: any) => {
+               return Object.values(f.properties).some(v => String(v).toUpperCase().includes(district.toUpperCase()));
+            });
+            if (filtered.length > 0) {
+              data = { features: filtered };
+              break;
+            }
+          }
+        } catch (e) {}
+      }
     }
 
     if (!data || !data.features) return [];
 
     const nameProps = ['adm3_name', 'NAME_3', 'ADM3_EN', 'TEHSIL', 'Tehsil', 'ADM3_NAME', 'NAME_2'];
     return data.features.map((f: any) => {
-      const prop = nameProps.find(p => f.properties[p] !== undefined) || nameProps[0];
+      const prop = nameProps.find(p => f.properties[p] !== undefined) || Object.keys(f.properties)[0];
       return { name: f.properties[prop] || 'Unknown Tehsil', geometry: f.geometry };
     }).sort((a: any, b: any) => a.name.localeCompare(b.name));
   } catch (err) {
