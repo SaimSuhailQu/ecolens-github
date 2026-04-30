@@ -56,7 +56,7 @@ const App: React.FC = () => {
   const [isGeeReady, setIsGeeReady] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(window.innerWidth >= 768);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(window.innerWidth >= 1024);
 
   // Hierarchical Selection State
   const [countries, setCountries] = useState<string[]>([]);
@@ -123,8 +123,8 @@ const App: React.FC = () => {
       setStatus(AnalysisStatus.SUCCESS);
       setActiveOverlay(`NDVI (${result.locationName})`);
 
-      // Close sidebar on mobile after analysis starts
-      if (window.innerWidth < 768) {
+      // Close sidebar on small screens after analysis starts
+      if (window.innerWidth < 1024) {
         setIsSidebarOpen(false);
       }
     } catch (e: any) {
@@ -479,20 +479,21 @@ const App: React.FC = () => {
     <div className="relative flex h-screen w-screen bg-slate-900 overflow-hidden font-sans">
 
       {/* Mobile Sidebar Backdrop */}
-      {isSidebarOpen && window.innerWidth < 768 && (
+      {isSidebarOpen && window.innerWidth < 1024 && (
         <div
-          className="fixed inset-0 z-[40] bg-black/60 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-[40] bg-black/60 backdrop-blur-sm lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar Toggle Button (Mobile Only) */}
+      {/* Sidebar Toggle Button */}
       {!isSidebarOpen && (
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className="fixed top-4 left-4 z-[50] p-2 bg-slate-800 text-white rounded-lg shadow-xl border border-slate-700 md:hidden hover:bg-slate-700 transition-all"
+          className="fixed top-4 left-4 z-[50] p-2 bg-slate-800 text-white rounded-lg shadow-xl border border-slate-700 hover:bg-slate-700 transition-all flex items-center gap-2"
         >
           <Menu size={24} />
+          <span className="text-xs font-bold uppercase tracking-wider pr-2">Menu</span>
         </button>
       )}
 
@@ -508,7 +509,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-[100] md:relative md:z-20 w-[85%] sm:w-[400px] md:w-[380px] lg:w-[450px] xl:w-[480px] flex-shrink-0 h-full bg-slate-900 border-r border-slate-800 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-[100] w-[85%] sm:w-[400px] md:w-[380px] lg:w-[450px] xl:w-[480px] flex-shrink-0 h-full bg-slate-900 border-r border-slate-800 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <header className="flex-shrink-0">
           <div className="p-5 border-b border-slate-800">
             <div className="flex items-center justify-between">
@@ -517,7 +518,7 @@ const App: React.FC = () => {
                 <h1 className="text-xl font-bold text-white tracking-tight">EcoLens <span className="text-slate-500 font-normal">WebGIS</span></h1>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-white" title="Close Sidebar">
+                <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-white" title="Close Sidebar">
                   <ChevronLeft size={18} />
                 </button>
                 <button onClick={() => setShowSettings(true)} className={`p-1.5 rounded-full transition-colors ${isGeeReady ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400 animate-pulse'}`} title="Configure Earth Engine">
@@ -588,8 +589,10 @@ const App: React.FC = () => {
               )}
             </div>
           </div>
+        </header>
 
-          <div className="grid grid-cols-3 gap-4 px-5 py-3 border-b border-slate-800 bg-slate-800/20">
+        <div className="flex-1 overflow-y-auto p-5 scroll-smooth custom-scrollbar">
+          <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-slate-800/20 border border-slate-800 rounded-xl">
             <div>
               <label className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Globe size={14} className="text-cyan-400" /> Admin Level</label>
               <select value={analysisLevel} onChange={handleLevelChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50">
@@ -625,7 +628,7 @@ const App: React.FC = () => {
             </div>
 
             {isGeeReady && analysisLevel === '3' && (
-              <div className="col-span-3 space-y-3 bg-slate-800/40 p-3 rounded-lg border border-slate-700/50 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="col-span-3 space-y-3 bg-slate-900/60 p-3 rounded-lg border border-slate-700/50 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="flex items-center gap-2 mb-1">
                   <MapIcon size={14} className="text-emerald-400" />
                   <span className="text-xs font-bold text-white uppercase tracking-wider">Administrative Selection (Pakistan)</span>
@@ -699,21 +702,19 @@ const App: React.FC = () => {
               </button>
             </div>
           </div>
-        </header>
 
-        <div className="flex-1 overflow-y-auto p-5 scroll-smooth custom-scrollbar">
           {!isGeeReady ? (
-            <div className="h-full flex flex-col items-center justify-center text-center opacity-80">
-              <AlertTriangle className="w-16 h-16 text-amber-500 mb-4" />
+            <div className="h-full flex flex-col items-center justify-center text-center opacity-80 py-10">
+              <AlertTriangle className="w-16 h-16 text-amber-500 mb-4 mx-auto" />
               <h3 className="text-lg font-medium text-slate-300">Authorization Required</h3>
-              <p className="text-sm text-slate-500 max-w-xs mt-2 mb-4">Please log in to authorize Earth Engine and start analyzing environmental data.</p>
+              <p className="text-sm text-slate-500 max-w-xs mt-2 mb-4 mx-auto">Please log in to authorize Earth Engine and start analyzing environmental data.</p>
               <button onClick={() => setShowSettings(true)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-sm transition-colors border border-slate-700">Login</button>
             </div>
           ) : status === AnalysisStatus.IDLE && (
-            <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
-              <MapIcon className="w-16 h-16 text-slate-700 mb-4" />
+            <div className="h-full flex flex-col items-center justify-center text-center opacity-60 py-10">
+              <MapIcon className="w-16 h-16 text-slate-700 mb-4 mx-auto" />
               <h3 className="text-lg font-medium text-slate-300">Prepare Analysis</h3>
-              <p className="text-sm text-slate-500 max-w-xs mt-2">
+              <p className="text-sm text-slate-500 max-w-xs mt-2 mx-auto">
                 {pendingLocation || customGeometry
                   ? "Location selected. Click 'Run Environmental Analysis' to start."
                   : `Select a location on the map, draw a polygon, or upload a spatial file.`}
@@ -722,18 +723,18 @@ const App: React.FC = () => {
           )}
 
           {status === AnalysisStatus.LOADING && (
-            <div className="h-full flex flex-col items-center justify-center text-center animate-pulse">
-              <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
+            <div className="h-full flex flex-col items-center justify-center text-center animate-pulse py-10">
+              <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4 mx-auto" />
               <h3 className="text-base font-medium text-slate-300">{analysis ? 'Querying Earth Engine...' : `Identifying ${analysisLevel}...`}</h3>
-              <p className="text-xs text-slate-500 mt-2">{analysis ? 'Aggregating regional data...' : 'Please wait...'}</p>
+              <p className="text-xs text-slate-500 mt-2 mx-auto">{analysis ? 'Aggregating regional data...' : 'Please wait...'}</p>
             </div>
           )}
 
           {status === AnalysisStatus.ERROR && (
-            <div className="h-full flex flex-col items-center justify-center text-center">
-              <Activity className="w-12 h-12 text-red-500 mb-4" />
+            <div className="h-full flex flex-col items-center justify-center text-center py-10">
+              <Activity className="w-12 h-12 text-red-500 mb-4 mx-auto" />
               <h3 className="text-base font-medium text-red-400">Analysis Failed</h3>
-              <p className="text-xs text-slate-500 mt-2 max-w-xs">{errorMessage || "Check console for errors. Your GEE account might not be authorized."}</p>
+              <p className="text-xs text-slate-500 mt-2 max-w-xs mx-auto">{errorMessage || "Check console for errors. Your GEE account might not be authorized."}</p>
               {errorMessage?.includes("Invalid Geometry") && (
                 <button
                   onClick={() => { setStatus(AnalysisStatus.IDLE); setDrawingMode(true); }}
@@ -869,7 +870,7 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <div className="p-4 border-t border-slate-800 bg-slate-900 text-[10px] text-slate-600 flex justify-between items-center">
+        <div className="p-4 border-t border-slate-800 bg-slate-900 text-[10px] text-slate-600 flex justify-between items-center shrink-0">
           <span>Powered by Google Earth Engine™</span>
           <div className="flex gap-2 items-center"><span className={`w-2 h-2 rounded-full ${isGeeReady ? 'bg-blue-500' : 'bg-red-500'} animate-pulse`}></span>{isGeeReady ? 'System Online' : 'Offline'}</div>
         </div>
