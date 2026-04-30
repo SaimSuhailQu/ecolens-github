@@ -1,0 +1,7 @@
+{
+  "name": "EcoLens WebGIS",
+  "description": "A WebGIS dashboard integrating Google Earth Engine to monitor environmental data. Select regions to view real-time vegetation indices and climate data.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
