@@ -856,20 +856,23 @@ const App: React.FC = () => {
                     </div>
                     <div className="max-h-40 overflow-y-auto mb-4 pr-1 scrollbar-thin scrollbar-thumb-slate-700">
                       <div className="grid grid-cols-2 gap-2">
-                        {AVAILABLE_INDICES.filter(i => !['rainfall', 'temperature'].includes(i.id)).map(idx => (
-                          <label key={idx.id} className="flex items-center gap-2 p-1.5 rounded bg-slate-900/50 hover:bg-slate-900 border border-slate-800 cursor-pointer transition-all">
-                            <input
-                              type="checkbox"
-                              checked={exportIndices.includes(idx.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) setExportIndices([...exportIndices, idx.id]);
-                                else setExportIndices(exportIndices.filter(id => id !== idx.id));
-                              }}
-                              className="w-3 h-3 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500/50"
-                            />
-                            <span className="text-[10px] text-slate-300 truncate">{idx.name}</span>
-                          </label>
-                        ))}
+                        {AVAILABLE_INDICES
+                          .filter(i => !['rainfall', 'temperature'].includes(i.id))
+                          .filter(i => analysisCategory === 'All' || i.category === analysisCategory)
+                          .map(idx => (
+                            <label key={idx.id} className="flex items-center gap-2 p-1.5 rounded bg-slate-900/50 hover:bg-slate-900 border border-slate-800 cursor-pointer transition-all">
+                              <input
+                                type="checkbox"
+                                checked={exportIndices.includes(idx.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) setExportIndices([...exportIndices, idx.id]);
+                                  else setExportIndices(exportIndices.filter(id => id !== idx.id));
+                                }}
+                                className="w-3 h-3 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500/50"
+                              />
+                              <span className="text-[10px] text-slate-300 truncate">{idx.name}</span>
+                            </label>
+                          ))}
                       </div>
                     </div>
                     <button
