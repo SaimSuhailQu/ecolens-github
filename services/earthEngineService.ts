@@ -434,14 +434,21 @@ export const getTehsils = async (district: string): Promise<{name: string, geome
   ];
   
   // Broader property list for matching district names
-  const districtProps = ['adm2_name', 'NAME_2', 'ADM2_EN', 'DISTRICT', 'District', 'ADM2_NAME', 'NAME_1', 'ADM1_EN'];
+  const districtProps = ['adm2_name', 'NAME_2', 'ADM2_EN', 'DISTRICT', 'District', 'ADM2_NAME', 'NAME_1', 'ADM1_EN', 'dist_nm'];
+
+  // Clean district name: remove " District" or " Division" suffix if present
+  const cleanedDistrict = district.replace(/ district/i, "").replace(/ division/i, "").trim();
+  const districtUpper = cleanedDistrict.toUpperCase();
 
   const fetchFilteredFromAsset = async (assetId: string) => {
     const col = ee.FeatureCollection(assetId);
     
     // Create filters for the district name in multiple properties
     const filters = districtProps.map(prop => 
-       ee.Filter.stringContains(prop, district).or(ee.Filter.stringContains(prop, district.toUpperCase()))
+       ee.Filter.or(
+         ee.Filter.stringContains(prop, cleanedDistrict), 
+         ee.Filter.stringContains(prop, districtUpper)
+       )
     );
     const districtFilter = ee.Filter.or(...filters);
     
@@ -459,7 +466,7 @@ export const getTehsils = async (district: string): Promise<{name: string, geome
     
     for (const assetId of assetsToTry) {
       try {
-        console.log(`Trying Tehsil asset: ${assetId} for district ${district}`);
+        console.log(`Trying Tehsil asset: ${assetId} for district ${cleanedDistrict}`);
         data = await fetchFilteredFromAsset(assetId as string);
         if (data && data.features && data.features.length > 0) {
           console.log(`Found ${data.features.length} Tehsils in ${assetId}`);
@@ -479,9 +486,10 @@ export const getTehsils = async (district: string): Promise<{name: string, geome
            const result: any = await new Promise((res) => col.evaluate((d: any) => res(d)));
            if (result && result.features) {
              const filtered = result.features.filter((f: any) => {
-                return Object.values(f.properties).some(v => 
-                  String(v).toUpperCase().includes(district.toUpperCase())
-                );
+                return Object.values(f.properties).some(v => {
+                  const val = String(v).toUpperCase();
+                  return val.includes(districtUpper) || districtUpper.includes(val);
+                });
              });
              if (filtered.length > 0) {
                data = { features: filtered };
@@ -495,7 +503,7 @@ export const getTehsils = async (district: string): Promise<{name: string, geome
 
     if (!data || !data.features) return [];
 
-    const nameProps = ['adm3_name', 'NAME_3', 'ADM3_EN', 'TEHSIL', 'Tehsil', 'ADM3_NAME', 'NAME_2', 'adm3_en'];
+    const nameProps = ['adm3_name', 'NAME_3', 'ADM3_EN', 'TEHSIL', 'Tehsil', 'ADM3_NAME', 'NAME_2', 'adm3_en', 'tehsil'];
     return data.features.map((f: any) => {
       const prop = nameProps.find(p => f.properties[p] !== undefined) || Object.keys(f.properties)[0];
       return { name: f.properties[prop] || 'Unknown Tehsil', geometry: f.geometry };
