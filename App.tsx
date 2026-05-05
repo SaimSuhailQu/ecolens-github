@@ -462,8 +462,12 @@ const App: React.FC = () => {
       await initializeGEE();
       setIsGeeReady(true);
       setShowSettings(false);
-    } catch (e) {
-      alert("Failed to connect to Earth Engine. Check OAuth Client ID and GEE authorization.");
+    } catch (e: any) {
+      if (e.message && (e.message.includes('permission') || e.message.includes('403'))) {
+        alert("Permission Denied (403): Your Google account does not have permission to use the Earth Engine project 'ee-saimsuhail5'.\n\nFix 1: Ask the administrator to add your email as a 'Service Usage Consumer' in Google Cloud IAM.\n\nFix 2: If you want to use your OWN Earth Engine account, remove 'VITE_GEE_PROJECT_ID' from the .env.local file.");
+      } else {
+        alert("Failed to connect to Earth Engine. " + e.message);
+      }
       console.error(e);
     }
   };
