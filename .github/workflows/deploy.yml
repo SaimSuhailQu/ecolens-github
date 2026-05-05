@@ -41,8 +41,6 @@ jobs:
         env:
           VITE_GEE_OAUTH_CLIENT_ID: ${{ secrets.VITE_GEE_OAUTH_CLIENT_ID }}
           VITE_GEE_PROJECT_ID: ${{ secrets.VITE_GEE_PROJECT_ID }}
-          VITE_EE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.VITE_EE_SERVICE_ACCOUNT_EMAIL }}
-          VITE_EE_PRIVATE_KEY: ${{ secrets.VITE_EE_PRIVATE_KEY }}
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
