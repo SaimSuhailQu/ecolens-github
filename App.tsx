@@ -901,12 +901,8 @@ const App: React.FC = () => {
           {status === AnalysisStatus.LOADING && (
             <div className="h-full flex flex-col items-center justify-center text-center animate-pulse py-10">
               <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4 mx-auto" />
-              <h3 className="text-base font-medium text-slate-300">
-                {analysis ? 'Querying Earth Engine...' : `Identifying ${analysisLevel === '0' ? 'Country' : analysisLevel === '1' ? 'Province' : analysisLevel === '2' ? 'District' : analysisLevel === '3' ? 'Tehsil' : 'Custom Boundary'}...`}
-              </h3>
-              <p className="text-xs text-slate-500 mt-2 mx-auto">
-                {analysis ? 'Aggregating regional data...' : 'Extracting geographical vectors...'}
-              </p>
+              <h3 className="text-base font-medium text-slate-300">{analysis ? 'Querying Earth Engine...' : `Identifying ${analysisLevel}...`}</h3>
+              <p className="text-xs text-slate-500 mt-2 mx-auto">{analysis ? 'Aggregating regional data...' : 'Please wait...'}</p>
               <button 
                 onClick={handleStopAnalysis}
                 className="mt-6 text-xs bg-slate-800 hover:bg-slate-700 text-red-400 px-4 py-2 rounded-lg border border-slate-700 flex items-center gap-2 transition-colors"

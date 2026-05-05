@@ -138,6 +138,16 @@ const getScaledImage = (img: any, resolution: number) => {
   }
 };
 
+const getOptimizedGeometry = (geom: any, areaValue: number) => {
+  if (!geom) return geom;
+  let simplificationError = 0;
+  if (areaValue > 100000) simplificationError = 1000;
+  else if (areaValue > 50000) simplificationError = 500;
+  else if (areaValue > 5000) simplificationError = 100;
+  
+  return simplificationError > 0 ? geom.simplify(simplificationError) : geom;
+};
+
 const getIndexExpression = (id: string, bands: any, img: any) => {
   const b = (name: string) => img.select(bands[name as keyof typeof bands]);
   switch (id) {
@@ -230,7 +240,11 @@ const getLULCData = async (geometry: any, year: number, signal?: AbortSignal, op
 };
 
 export const getExportUrl = async (region: any, year: number, resolution: number, startDate: string, endDate: string, selectedIndices: string[]): Promise<string | null> => {
-    const geometry = ee.Geometry(validateAndCleanGeometry(region));
+    const rawGeometry = ee.Geometry(validateAndCleanGeometry(region));
+    const area = ee.Number(rawGeometry.area()).divide(1e6);
+    const areaValue: number = await new Promise((res) => area.evaluate((v: any) => res(v || 0)));
+    const geometry = getOptimizedGeometry(rawGeometry, areaValue);
+
     const imageCol = ee.ImageCollection(resolution === 10 ? 'COPERNICUS/S2_SR' : 'LANDSAT/LC08/C02/T1_L2')
         .filterDate(startDate, endDate).filterBounds(geometry);
     const medianImage = getScaledImage(imageCol.median().clip(geometry), resolution);
@@ -294,8 +308,8 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
   
   const imageCol = ee.ImageCollection(resolution === 10 ? 'COPERNICUS/S2_SR' : 'LANDSAT/LC08/C02/T1_L2')
     .filterDate(startDate, endDate)
-    .filterBounds(geometry);
-  const medianImage = getScaledImage(imageCol.median().clip(geometry), resolution);
+    .filterBounds(optimizedGeometry);
+  const medianImage = getScaledImage(imageCol.median().clip(optimizedGeometry), resolution);
     
   const scale = compScale;
 
@@ -343,7 +357,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
     (async () => {
       const statsList = ee.List.sequence(1, 12).map((m: any) => {
         const month = ee.Number(m);
-        const rawMonthlyImg = imageCol.filter(ee.Filter.calendarRange(month, month, 'month')).median();
+        const rawMonthlyImg = imageCol.filter(ee.Filter.calendarRange(month, month, 'month')).median().clip(optimizedGeometry);
         const monthlyImg = getScaledImage(rawMonthlyImg, resolution);
         
         let all = ee.Image([]);
@@ -489,15 +503,25 @@ print('Mean NDVI:', stats.get('NDVI'));`;
 
 export const getLazyMapId = async (indexId: string, regionGeometry: any, metadata: any): Promise<{ mapId: string; url: string } | null> => {
   if (!isInitialized) return null;
-  const geometry = ee.Geometry(validateAndCleanGeometry(regionGeometry));
+  const rawGeometry = ee.Geometry(validateAndCleanGeometry(regionGeometry));
+  const area = ee.Number(rawGeometry.area()).divide(1e6);
+  const areaValue: number = await new Promise((res) => area.evaluate((v: any) => res(v || 0)));
+  const geometry = getOptimizedGeometry(rawGeometry, areaValue);
+
   const imageCol = ee.ImageCollection(metadata.imageColId).filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry);
   const resolution = metadata.imageColId === 'COPERNICUS/S2_SR' ? 10 : 30;
   const medianImage = getScaledImage(imageCol.median().clip(geometry), resolution);
   const idx = AVAILABLE_INDICES.find(i => i.id === indexId);
   if (!idx) return null;
+
+  const tcCol = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE")
+    .filterDate(metadata.startDate, metadata.endDate)
+    .filterBounds(geometry);
+  const tcMedian = tcCol.median();
+
   let img = idx.id === 'pdsi' || idx.id === 'spei' ? 
-      (idx.id === 'pdsi' ? ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().select('pdsi') : 
-       ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().expression('pr-pet',{pr:ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().select('pr'),pet:ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().select('pet')})) : 
+      (idx.id === 'pdsi' ? tcMedian.select('pdsi') : 
+       tcMedian.expression('pr-pet',{pr:tcMedian.select('pr'),pet:tcMedian.select('pet')})) : 
       (idx.id === 'uhi' ? 
         (() => {
            const lst = getIndexExpression('lst', metadata.bands, medianImage);
