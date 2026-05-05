@@ -305,24 +305,39 @@ const App: React.FC = () => {
     // Auto-analysis logic...
     if (isGeeReady) {
       // Determine appropriate level from Nominatim results
-      let detectedLevel: AnalysisLevel = analysisLevel;
-      const addrType = result.addresstype || '';
-      const type = result.type || '';
-      const category = result.class || '';
+      let detectedLevel: AnalysisLevel = '2'; // Default to District
+      const addrType = (result.addresstype || '').toLowerCase();
+      const type = (result.type || '').toLowerCase();
+      const category = (result.class || '').toLowerCase();
+      const displayName = (result.display_name || '').toLowerCase();
+      const rank = result.place_rank || 20;
 
-      if (addrType === 'country' || type === 'country') {
+      // Pakistan-specific province names for higher accuracy
+      const pkProvinces = ['punjab', 'sindh', 'khyber pakhtunkhwa', 'balochistan', 'gilgit-baltistan', 'azad kashmir', 'islamabad capital territory'];
+      const isPkProvince = pkProvinces.some(p => displayName.includes(p)) && (rank <= 12);
+
+      if (addrType === 'country' || type === 'country' || rank <= 4) {
         detectedLevel = '0';
-      } else if (addrType === 'state' || addrType === 'province' || type === 'state' || type === 'province') {
+      } else if (addrType === 'state' || addrType === 'province' || type === 'state' || type === 'province' || isPkProvince || (rank >= 5 && rank <= 9)) {
         detectedLevel = '1';
-      } else if (addrType === 'district' || addrType === 'county' || type === 'district' || type === 'county' || (category === 'boundary' && type === 'administrative')) {
+      } else if (addrType === 'district' || addrType === 'county' || type === 'district' || type === 'county' || (category === 'boundary' && rank >= 10 && rank <= 16)) {
         detectedLevel = '2';
-      } else if (addrType === 'city' || addrType === 'town' || addrType === 'village' || addrType === 'tehsil' || type === 'city' || type === 'town') {
+      } else if (addrType === 'city' || addrType === 'town' || addrType === 'village' || addrType === 'tehsil' || type === 'city' || type === 'town' || rank >= 17) {
         detectedLevel = '3';
       }
 
       setAnalysisLevel(detectedLevel);
       const region = await getRegionFromCoords(coords, detectedLevel);
-      if (region) setSelectedRegion(region);
+      if (region) {
+        setSelectedRegion(region);
+        
+        // Also update hierarchical selection to match if possible
+        if (detectedLevel === '1') {
+          setSelectedProv(region.name.split(' (')[0]);
+        } else if (detectedLevel === '2') {
+          setSelectedDist(region.name.split(' (')[0]);
+        }
+      }
     }
   };
 
