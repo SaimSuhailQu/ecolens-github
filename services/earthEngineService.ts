@@ -19,26 +19,54 @@ export const initializeGEE = async () => {
     throw new Error("Google OAuth Client ID not provided in environment variable VITE_GEE_OAUTH_CLIENT_ID.");
   }
 
-  return new Promise<void>((resolve, reject) => {
-    ee.data.authenticateViaOauth(clientId, () => {
-      // The project ID should be the raw ID (e.g., 'ee-saimsuhail5')
-      const projectRawId = projectId.replace('projects/', '');
-      const projectPath = `projects/${projectRawId}`;
+  const saKeyString = import.meta.env.VITE_EE_PRIVATE_KEY;
+  let saKey: any = null;
+  try {
+    if (saKeyString) saKey = JSON.parse(saKeyString);
+  } catch (e) {
+    console.error("Failed to parse Service Account Key:", e);
+  }
 
-      // Set the project for the session
-      if (ee.data.setProject) {
-        ee.data.setProject(projectRawId);
-      }
+  const tryServiceAccountFallback = (originalError: any) => {
+    console.log("Attempting Service Account fallback due to error:", originalError);
+    if (!saKey) {
+      return reject(new Error("GEE Initialization Failed: " + originalError + ". Also no Service Account key found for fallback."));
+    }
+
+    ee.data.authenticateViaPrivateKey(saKey, () => {
+      const saProjectId = saKey.project_id || "ee-saimsuhail5";
+      if (ee.data.setProject) ee.data.setProject(saProjectId);
       
-      // Initialize with the project ID to ensure quota is tracked correctly
       ee.initialize(null, null, () => {
+        console.log("GEE initialized successfully via Service Account.");
+        isInitialized = true;
+        resolve();
+      }, (e: any) => reject(new Error("GEE Hybrid Initialization Failed: " + e)), null, saProjectId);
+    }, (e: any) => reject(new Error("Service Account Fallback Failed: " + e)));
+  };
+
+  return new Promise<void>((resolve, reject) => {
+    // Stage 1: User OAuth
+    ee.data.authenticateViaOauth(clientId, () => {
+      const projectRawId = projectId.replace('projects/', '');
+      if (ee.data.setProject) ee.data.setProject(projectRawId);
+      
+      ee.initialize(null, null, () => {
+        console.log("GEE initialized via User OAuth.");
         isInitialized = true;
         resolve();
       }, (e: any) => {
-        console.error("GEE Init Error:", e);
-        reject(new Error("GEE Initialization Failed: " + e));
+        // If User has no permission on this project or no GEE account, try fallback
+        if (e.toString().includes("permission") || e.toString().includes("not authorized") || e.toString().includes("400")) {
+           tryServiceAccountFallback(e);
+        } else {
+           reject(new Error("GEE Initialization Failed: " + e));
+        }
       }, null, projectRawId);
-    }, (e: any) => reject(new Error("GEE Authentication Failed: " + e)),
+    }, (e: any) => {
+       // If OAuth authentication itself fails (e.g. no GEE account linked to Google account)
+       tryServiceAccountFallback(e);
+    },
     ['https://www.googleapis.com/auth/earthengine.readonly'],
     () => reject(new Error("Authentication cancelled by user.")));
   });
