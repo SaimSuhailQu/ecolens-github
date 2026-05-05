@@ -288,22 +288,35 @@ const App: React.FC = () => {
     // Debounce the API call by 1000ms to comply with Nominatim's 1 request/sec limit
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const countryCode = selectedCountry === 'Pakistan' ? 'pk' : '';
+        const countryCode = selectedCountry === 'Pakistan' ? '&osm_tag=place:country&bbox=60,23,80,38' : ''; // Photon doesn't have strict countrycodes, using bbox for PK
         const url = type === 'global'
-          ? `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
-          : `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=${countryCode}`;
+          ? `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`
+          : `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5${countryCode}`;
 
-        const response = await fetch(url, {
-          headers: {
-            'Accept-Language': 'en-US,en;q=0.9'
-          }
-        });
+        const response = await fetch(url);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        const data = await response.json();
+        const rawData = await response.json();
+        
+        // Map Photon GeoJSON format to Nominatim format so existing logic works
+        const data = (rawData.features || []).map((f: any) => {
+          const props = f.properties;
+          const nameParts = [props.name, props.state, props.country].filter(Boolean);
+          
+          return {
+            lat: f.geometry.coordinates[1].toString(),
+            lon: f.geometry.coordinates[0].toString(),
+            display_name: nameParts.join(', '),
+            class: props.osm_key || '',
+            type: props.osm_value || props.type || '',
+            addresstype: props.type || '',
+            place_rank: 20 // Photon doesn't return rank, default to 20
+          };
+        });
+        
         type === 'global' ? setSearchResults(data) : setLocalSearchResults(data);
       } catch (e) {
         console.error("Nominatim search error:", e);
