@@ -306,15 +306,17 @@ const App: React.FC = () => {
     if (isGeeReady) {
       // Determine appropriate level from Nominatim results
       let detectedLevel: AnalysisLevel = analysisLevel;
-      const type = result.type || result.addresstype || '';
+      const addrType = result.addresstype || '';
+      const type = result.type || '';
       const category = result.class || '';
 
-      if (type === 'country') detectedLevel = '0';
-      else if (type === 'state' || type === 'province') detectedLevel = '1';
-      else if (type === 'district' || type === 'county' || category === 'boundary' && type === 'administrative') {
-        // Many districts in Pakistan are tagged as administrative/boundary
+      if (addrType === 'country' || type === 'country') {
+        detectedLevel = '0';
+      } else if (addrType === 'state' || addrType === 'province' || type === 'state' || type === 'province') {
+        detectedLevel = '1';
+      } else if (addrType === 'district' || addrType === 'county' || type === 'district' || type === 'county' || (category === 'boundary' && type === 'administrative')) {
         detectedLevel = '2';
-      } else if (type === 'city' || type === 'town' || type === 'village' || type === 'tehsil') {
+      } else if (addrType === 'city' || addrType === 'town' || addrType === 'village' || addrType === 'tehsil' || type === 'city' || type === 'town') {
         detectedLevel = '3';
       }
 
