@@ -265,9 +265,21 @@ export const getExportUrl = async (region: any, year: number, resolution: number
     return await getTiffUrlWithRetry(exportImage, `ecolens_export_${year}`, geometry, resolution);
 };
 
-export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number, level: AnalysisLevel, resolution: number, startDate: string, endDate: string, analysisCategory: string = 'All', signal?: AbortSignal): Promise<RegionAnalysis> => {
+export const analyzeRegionWithGEE = async (
+  region: RegionGeometry, 
+  year: number, 
+  level: AnalysisLevel, 
+  resolution: number, 
+  startDate: string, 
+  endDate: string, 
+  analysisCategory: string = 'All', 
+  signal?: AbortSignal,
+  onProgress?: (p: number) => void
+): Promise<RegionAnalysis> => {
   if (!isInitialized) throw new Error("Earth Engine not initialized.");
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  
+  if (onProgress) onProgress(5);
 
   const cleanedGeometry = validateAndCleanGeometry(region.geometry);
   const geometry = level === 'custom' ? ee.Geometry(cleanedGeometry) : ee.Feature(region.geometry).geometry();
@@ -339,10 +351,11 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
   const [climateData, droughtData, indicesData] = await Promise.all([
     (async () => {
       const stats = climateCol.map((img: any) => {
-        const s = img.reduceRegion({ reducer: ee.Reducer.mean(), geometry: optimizedGeometry, scale: 27830, bestEffort: true, tileScale: 16 });
+        const s = img.reduceRegion({ reducer: ee.Reducer.mean(), geometry: optimizedGeometry, scale: 11132, bestEffort: true });
         return ee.Feature(null, { m: img.date().format('MM'), t: s.get('temperature_2m'), r: s.get('total_precipitation_sum') });
       });
       const features: any = await evaluateWithSignal(stats, signal);
+      if (onProgress) onProgress(25);
       return features?.features?.map((f: any) => f.properties) || [];
     })(),
     (async () => {
@@ -352,6 +365,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
         return ee.Feature(null, { m: img.date().format('MM'), p: s.get('pdsi'), s: s.get('spei') });
       });
       const features: any = await evaluateWithSignal(stats, signal);
+      if (onProgress) onProgress(45);
       return features?.features?.map((f: any) => f.properties) || [];
     })(),
     (async () => {
@@ -394,6 +408,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
       });
       
       const features: any = await evaluateWithSignal(ee.FeatureCollection(statsList), signal);
+      if (onProgress) onProgress(75);
       return features?.features?.map((f: any) => f.properties) || [];
     })()
   ]);
@@ -448,6 +463,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
   };
 
   const [vizData, lulc] = await Promise.all([runVisualizationAnalysis(), getLULCData(geometry, year, signal, optimizedGeometry)]);
+  if (onProgress) onProgress(100);
   const monthlyData = months.map((m, i) => {
     const d: any = { month: new Date(year, i).toLocaleString('default', { month: 'short' }) };
     const cs = climateData.find((f: any) => f.m === m);

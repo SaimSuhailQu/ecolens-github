@@ -51,6 +51,7 @@ const App: React.FC = () => {
   const [pendingLocation, setPendingLocation] = useState<Coordinates | null>(null);
   const [exportIndices, setExportIndices] = useState<string[]>(['ndvi', 'ndwi', 'bsi']);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [progress, setProgress] = useState<number>(0);
 
   // GEE State
   const [isGeeReady, setIsGeeReady] = useState<boolean>(false);
@@ -96,6 +97,7 @@ const App: React.FC = () => {
     setStatus(AnalysisStatus.LOADING);
     setAnalysis(null);
     setErrorMessage(null);
+    setProgress(0);
 
     // Create a new AbortController for this analysis
     if (abortControllerRef.current) {
@@ -143,7 +145,8 @@ const App: React.FC = () => {
         startDate, 
         endDate, 
         analysisCategory,
-        controller.signal
+        controller.signal,
+        (p) => setProgress(p)
       );
       setAnalysis(result);
       setStatus(AnalysisStatus.SUCCESS);
@@ -899,19 +902,39 @@ const App: React.FC = () => {
           )}
 
           {status === AnalysisStatus.LOADING && (
-            <div className="h-full flex flex-col items-center justify-center text-center animate-pulse py-10">
-              <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4 mx-auto" />
+            <div className="h-full flex flex-col items-center justify-center text-center py-10">
+              <div className="relative mb-6">
+                <Loader2 className="w-16 h-16 text-emerald-500 animate-spin mx-auto opacity-20" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-sm font-bold text-emerald-400">{progress}%</span>
+                </div>
+              </div>
+              
+              <div className="w-64 h-1.5 bg-slate-800 rounded-full mb-6 overflow-hidden border border-slate-700/50">
+                <div 
+                  className="h-full bg-gradient-to-r from-emerald-600 to-teal-400 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+
               <h3 className="text-base font-medium text-slate-300">
                 {analysis ? 'Querying Earth Engine...' : `Identifying ${analysisLevel === '0' ? 'Country' : analysisLevel === '1' ? 'Province' : analysisLevel === '2' ? 'District' : analysisLevel === '3' ? 'Tehsil' : 'Custom Region'}...`}
               </h3>
               <p className="text-xs text-slate-500 mt-2 mx-auto">
-                {analysis ? 'Processing environmental metrics...' : 'Synchronizing geographical data...'}
+                {progress < 100 ? 'Processing environmental metrics...' : 'Finalizing analysis results...'}
               </p>
+              
+              {progress > 0 && (
+                <p className="text-[10px] text-slate-600 mt-4 italic">
+                  Estimated time remaining: {Math.max(0, Math.ceil((100 - progress) / 3))}s
+                </p>
+              )}
+
               <button 
                 onClick={handleStopAnalysis}
-                className="mt-6 text-xs bg-slate-800 hover:bg-slate-700 text-red-400 px-4 py-2 rounded-lg border border-slate-700 flex items-center gap-2 transition-colors"
+                className="mt-8 text-xs bg-slate-800 hover:bg-slate-700 text-red-400 px-4 py-2 rounded-lg border border-slate-700 flex items-center gap-2 transition-colors group"
               >
-                <X size={14} /> Cancel Process
+                <X size={14} className="group-hover:rotate-90 transition-transform" /> Cancel Process
               </button>
             </div>
           )}
