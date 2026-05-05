@@ -21,20 +21,23 @@ export const initializeGEE = async () => {
 
   return new Promise<void>((resolve, reject) => {
     ee.data.authenticateViaOauth(clientId, () => {
-      // Ensure project is correctly identified to prevent CORS errors (earthengine-legacy)
-      const projectPath = projectId.startsWith('projects/') ? projectId : `projects/${projectId}`;
+      // The project ID should be the raw ID (e.g., 'ee-saimsuhail5')
       const projectRawId = projectId.replace('projects/', '');
+      const projectPath = `projects/${projectRawId}`;
 
+      // Set the project for the session
       if (ee.data.setProject) {
-        ee.data.setProject(projectPath);
+        ee.data.setProject(projectRawId);
       }
       
-      // Pass the project ID/path to initialize. 
-      // The signature is: initialize(baseurl, tileurl, successCallback, errorCallback, authCallback, project)
+      // Initialize with the project ID to ensure quota is tracked correctly
       ee.initialize(null, null, () => {
         isInitialized = true;
         resolve();
-      }, (e: any) => reject(new Error("GEE Initialization Failed: " + e)), null, projectRawId);
+      }, (e: any) => {
+        console.error("GEE Init Error:", e);
+        reject(new Error("GEE Initialization Failed: " + e));
+      }, null, projectRawId);
     }, (e: any) => reject(new Error("GEE Authentication Failed: " + e)),
     ['https://www.googleapis.com/auth/earthengine.readonly'],
     () => reject(new Error("Authentication cancelled by user.")));
