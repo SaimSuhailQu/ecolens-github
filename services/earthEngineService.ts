@@ -250,11 +250,16 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
     })(),
     (async () => {
       // OPTIMIZED: Use server-side mapping for all months at once
+      const dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(startDate, endDate).filterBounds(geometry).select('label').mode();
+      const ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));
+
       const statsList = ee.List.sequence(1, 12).map((m: any) => {
         const month = ee.Number(m);
         const monthlyImg = imageCol.filter(ee.Filter.calendarRange(month, month, 'month')).median();
         
         let all = ee.Image([]);
+        const lstImg = getIndexExpression('lst', bands, monthlyImg);
+
         AVAILABLE_INDICES
           .filter(i => {
             if (['rainfall','temperature','pdsi','spei'].includes(i.id)) return false;
@@ -262,14 +267,23 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
             return i.category === analysisCategory;
           })
           .forEach(i => {
-            const idx = getIndexExpression(i.id, bands, monthlyImg);
-            if (idx) all = all.addBands(idx.rename(i.id));
+            if (i.id === 'uhi' && lstImg) {
+              const ruralStats = lstImg.updateMask(ruralMask).reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 500, bestEffort: true });
+              const ruralMean = ee.Number(ruralStats.get('lst'));
+              const uhiImg = lstImg.subtract(ruralMean).rename('uhi');
+              all = all.addBands(uhiImg);
+            } else if (i.id === 'lst' && lstImg) {
+              all = all.addBands(lstImg.rename('lst'));
+            } else {
+              const idx = getIndexExpression(i.id, bands, monthlyImg);
+              if (idx) all = all.addBands(idx.rename(i.id));
+            }
           });
         
         const stats = all.reduceRegion({ 
           reducer: ee.Reducer.mean(), 
           geometry, 
-          scale: scale > 100 ? scale : 100, // Coarser scale for faster chart data
+          scale: scale > 100 ? scale : 100, 
           bestEffort: true,
           maxPixels: 1e9
         });
