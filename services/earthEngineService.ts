@@ -211,7 +211,10 @@ export const getExportUrl = async (region: any, year: number, resolution: number
         if (idxImg) exportImage = exportImage.addBands(idxImg.rename(id));
     });
     
-    if (exportImage.bandNames().size().evaluate((s: number) => s === 0)) return null;
+    const bandNames = exportImage.bandNames();
+    const count: number = await new Promise((res) => bandNames.size().evaluate((s: any) => res(s || 0)));
+    
+    if (count === 0) return null;
     return await getTiffUrlWithRetry(exportImage, `ecolens_export_${year}`, geometry, resolution);
 };
 
@@ -253,14 +256,17 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
   if (analysisCategory === 'All' || analysisCategory === 'Heat') {
     const dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(startDate, endDate).filterBounds(geometry).select('label').mode();
     const ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));
-    const meanThermal = imageCol.select(bands.thermal || 'SR_B2').median(); // Fallback if no thermal
+    const thermalBand = bands.thermal || (resolution === 10 ? 'B2' : 'SR_B2');
+    const meanThermal = imageCol.select(thermalBand).median();
+    
     if (bands.thermal) {
       const lst = meanThermal.multiply(0.00341802).add(149.0).subtract(273.15);
       const ruralStats = lst.updateMask(ruralMask).reduceRegion({ 
         reducer: ee.Reducer.mean(), 
         geometry, 
-        scale: Math.max(scale, 1000), // Coarse scale for baseline 
-        bestEffort: true 
+        scale: Math.max(scale, 500), 
+        bestEffort: true,
+        tileScale: 4
       });
       regionalRuralMean = ee.Number(ruralStats.get('lst', 0));
     }
@@ -375,7 +381,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
       }
     }));
     
-    viz.tiffDownloadUrl = await getTiffUrlWithRetry(medianImage, 'export', geometry, resolution);
+    viz.tiffDownloadUrl = await getTiffUrlWithRetry(medianImage, 'export', geometry, scale);
     return viz;
   };
 
