@@ -126,6 +126,18 @@ const getTiffUrlWithRetry = (image: any, name: string, region: any, initialScale
   });
 };
 
+const getScaledImage = (img: any, resolution: number) => {
+  if (resolution === 10) {
+    // Sentinel-2 optical bands
+    return img.divide(10000);
+  } else {
+    // Landsat 8 optical and thermal
+    const optical = img.select(['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7']).multiply(0.0000275).add(-0.2);
+    const thermal = img.select(['ST_B10']).multiply(0.00341802).add(149.0);
+    return img.addBands(optical, null, true).addBands(thermal, null, true);
+  }
+};
+
 const getIndexExpression = (id: string, bands: any, img: any) => {
   const b = (name: string) => img.select(bands[name as keyof typeof bands]);
   switch (id) {
@@ -221,7 +233,7 @@ export const getExportUrl = async (region: any, year: number, resolution: number
     const geometry = ee.Geometry(validateAndCleanGeometry(region));
     const imageCol = ee.ImageCollection(resolution === 10 ? 'COPERNICUS/S2_SR' : 'LANDSAT/LC08/C02/T1_L2')
         .filterDate(startDate, endDate).filterBounds(geometry);
-    const medianImage = imageCol.median().clip(geometry);
+    const medianImage = getScaledImage(imageCol.median().clip(geometry), resolution);
     const bands = resolution === 10 ? 
         { blue: 'B2', green: 'B3', red: 'B4', nir: 'B8', swir1: 'B11', swir2: 'B12', re1: 'B5', re2: 'B6', re3: 'B7' } :
         { blue: 'SR_B2', green: 'SR_B3', red: 'SR_B4', nir: 'SR_B5', swir1: 'SR_B6', swir2: 'SR_B7', re1: 'SR_B5', re2: 'SR_B5', re3: 'SR_B5', thermal: 'ST_B10' };
@@ -283,6 +295,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
   const imageCol = ee.ImageCollection(resolution === 10 ? 'COPERNICUS/S2_SR' : 'LANDSAT/LC08/C02/T1_L2')
     .filterDate(startDate, endDate)
     .filterBounds(geometry);
+  const medianImage = getScaledImage(imageCol.median().clip(geometry), resolution);
     
   const scale = compScale;
 
@@ -330,7 +343,8 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
     (async () => {
       const statsList = ee.List.sequence(1, 12).map((m: any) => {
         const month = ee.Number(m);
-        const monthlyImg = imageCol.filter(ee.Filter.calendarRange(month, month, 'month')).median();
+        const rawMonthlyImg = imageCol.filter(ee.Filter.calendarRange(month, month, 'month')).median();
+        const monthlyImg = getScaledImage(rawMonthlyImg, resolution);
         
         let all = ee.Image([]);
         const lstImg = getIndexExpression('lst', bands, monthlyImg);
@@ -372,7 +386,6 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
 
   const runVisualizationAnalysis = async () => {
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    const medianImage = imageCol.median().clip(geometry);
     const viz: any = {};
     
     // Filter indices based on category
@@ -478,7 +491,8 @@ export const getLazyMapId = async (indexId: string, regionGeometry: any, metadat
   if (!isInitialized) return null;
   const geometry = ee.Geometry(validateAndCleanGeometry(regionGeometry));
   const imageCol = ee.ImageCollection(metadata.imageColId).filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry);
-  const medianImage = imageCol.median().clip(geometry);
+  const resolution = metadata.imageColId === 'COPERNICUS/S2_SR' ? 10 : 30;
+  const medianImage = getScaledImage(imageCol.median().clip(geometry), resolution);
   const idx = AVAILABLE_INDICES.find(i => i.id === indexId);
   if (!idx) return null;
   let img = idx.id === 'pdsi' || idx.id === 'spei' ? 
