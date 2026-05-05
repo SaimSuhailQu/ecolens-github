@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, useMapEvents, useMap, LayersControl, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, useMapEvents, useMap, LayersControl, GeoJSON, ZoomControl } from 'react-leaflet';
 import { RegionGeometry, Coordinates, RegionAnalysis, AVAILABLE_INDICES } from '../types';
 import L from 'leaflet';
 import 'leaflet-draw';
@@ -122,7 +122,8 @@ export const MapViewer: React.FC<MapViewerProps> = (props) => {
 
   return (
     <div className="h-full w-full relative z-0">
-      <MapContainer center={[20, 0]} zoom={2} scrollWheelZoom={true} className="h-full w-full bg-slate-900">
+      <MapContainer center={[20, 0]} zoom={2} scrollWheelZoom={true} className="h-full w-full bg-slate-900" zoomControl={false}>
+        <ZoomControl position="topright" />
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Dark Matter (CartoDB)">
             <TileLayer attribution='&copy; CARTO' url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
@@ -198,20 +199,20 @@ export const MapViewer: React.FC<MapViewerProps> = (props) => {
         </div>
       )}
 
-      <div className="absolute bottom-6 left-6 z-[1000] flex flex-col gap-2">
-        <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 shadow-xl backdrop-blur-md">
+      <div className="absolute bottom-[104px] right-6 z-[1000] flex flex-col gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
+        <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 shadow-xl backdrop-blur-md w-40">
           <div className="flex items-center gap-2 mb-2">
             <Hexagon className="w-4 h-4 text-blue-400" />
-            <span className="text-xs font-bold text-white uppercase tracking-wider">Map Controls</span>
+            <span className="text-[10px] font-bold text-white uppercase tracking-wider">Map Controls</span>
           </div>
           <div className="flex flex-col gap-1.5">
-             <div className="flex items-center gap-2 text-[10px] text-slate-400">
-               <MousePointer2 size={12} className="text-slate-500" />
+             <div className="flex items-center gap-2 text-[9px] text-slate-400">
+               <MousePointer2 size={10} className="text-slate-500" />
                <span>Click to select region</span>
              </div>
-             <div className="flex items-center gap-2 text-[10px] text-slate-400">
-               <Square size={12} className="text-slate-500" />
-               <span>Draw custom analysis areas</span>
+             <div className="flex items-center gap-2 text-[9px] text-slate-400">
+               <Square size={10} className="text-slate-500" />
+               <span>Draw custom areas</span>
              </div>
           </div>
         </div>
