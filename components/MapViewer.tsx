@@ -108,9 +108,14 @@ export const MapViewer: React.FC<MapViewerProps> = (props) => {
     const palette = idx.category === 'Vegetation' ? ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] : 
                     idx.category === 'Water' ? ['red', 'yellow', 'green', 'cyan', 'blue'] : 
                     idx.category === 'Burn' ? ['#7a5230', '#d5a478', '#fff5d7', '#d4e7b0', '#397d49'] : 
+                    idx.category === 'Heat' ? ['#0000ff', '#00ffff', '#ffff00', '#ff7f00', '#ff0000'] :
                     idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
     
-    return { params: { min: idx.category === 'Climate' ? -10 : -1, max: idx.category === 'Climate' ? 10 : 1, palette }, title: idx.name };
+    return { params: { 
+      min: idx.category === 'Climate' ? -10 : idx.category === 'Heat' ? 10 : -1, 
+      max: idx.category === 'Climate' ? 10 : idx.category === 'Heat' ? 50 : 1, 
+      palette 
+    }, title: idx.name };
   };
 
   const legendData = getVisParams();
@@ -132,7 +137,7 @@ export const MapViewer: React.FC<MapViewerProps> = (props) => {
           
           {analysis && (
             <>
-              {['Vegetation', 'Water', 'Burn', 'Urban', 'Geological', 'Climate']
+              {['Vegetation', 'Water', 'Burn', 'Urban', 'Geological', 'Climate', 'Heat']
                 .filter(cat => analysisCategory === 'All' || cat === analysisCategory)
                 .map(category => {
                   const categoryIndices = AVAILABLE_INDICES.filter(idx => idx.category === category && !['rainfall', 'temperature', 'pdsi', 'spei'].includes(idx.id));
