@@ -11,7 +11,9 @@ export const initializeGEE = async () => {
   }
   ee.data.clearAuthToken();
   const clientId = import.meta.env.VITE_GEE_OAUTH_CLIENT_ID;
-  const projectId = import.meta.env.VITE_GEE_PROJECT_ID || "ee-saimsuhail5";
+  const projectId = (import.meta.env.VITE_GEE_PROJECT_ID && import.meta.env.VITE_GEE_PROJECT_ID.trim() !== '') 
+    ? import.meta.env.VITE_GEE_PROJECT_ID 
+    : "ee-saimsuhail5";
 
   if (!clientId) {
     throw new Error("Google OAuth Client ID not provided in environment variable VITE_GEE_OAUTH_CLIENT_ID.");
@@ -20,8 +22,11 @@ export const initializeGEE = async () => {
   return new Promise<void>((resolve, reject) => {
     ee.data.authenticateViaOauth(clientId, () => {
       // Pass the project ID as the 5th argument to ee.initialize
-      // And explicitly set it using ee.data.setProject to prevent 400 errors
-      ee.data.setProject(projectId);
+      // And explicitly set it using ee.data.setProject to prevent CORS 400 errors (earthengine-legacy)
+      // Note: ee.data.setProject usually expects the 'projects/' prefix
+      const projectPath = projectId.startsWith('projects/') ? projectId : `projects/${projectId}`;
+      ee.data.setProject(projectPath);
+      
       ee.initialize(null, null, () => {
         isInitialized = true;
         resolve();
