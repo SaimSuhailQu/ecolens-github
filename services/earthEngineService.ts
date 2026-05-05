@@ -88,16 +88,21 @@ const evaluateWithSignal = <T>(eeObject: any, signal?: AbortSignal): Promise<T> 
 
 const getTiffUrlWithRetry = (image: any, name: string, region: any, initialScale: number): Promise<string | null> => {
   return new Promise((resolve) => {
-    const scalesToTry = [initialScale, 50, 100, 250, 500].filter((s, i, a) => s >= initialScale && a.indexOf(s) === i);
+    // Expanded scales for large regions (Punjab, provinces, etc.)
+    const scalesToTry = [initialScale, 50, 100, 250, 500, 1000, 2500, 5000].filter((s, i, a) => s >= initialScale && a.indexOf(s) === i);
     let currentAttempt = 0;
+    
+    // Simplify region for download to prevent complexity errors
+    const downloadRegion = region.bounds();
+
     const tryDownload = (scale: number) => {
-      image.getDownloadURL({ name, scale, region, format: 'GEO_TIFF' }, (url: string, error: any) => {
+      image.getDownloadURL({ name, scale, region: downloadRegion, format: 'GEO_TIFF' }, (url: string, error: any) => {
         if (error) {
-          const errorStr = error.toString();
-          if (errorStr.includes("Total request size") && currentAttempt < scalesToTry.length - 1) {
+          if (currentAttempt < scalesToTry.length - 1) {
             currentAttempt++;
             tryDownload(scalesToTry[currentAttempt]);
           } else {
+            console.error("GeoTIFF export failed after all retries:", error);
             resolve(null);
           }
         } else resolve(url);
