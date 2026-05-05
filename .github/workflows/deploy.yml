@@ -40,7 +40,6 @@ jobs:
         run: npm run build
         env:
           VITE_GEE_OAUTH_CLIENT_ID: ${{ secrets.VITE_GEE_OAUTH_CLIENT_ID }}
-          VITE_GEE_PROJECT_ID: ${{ secrets.VITE_GEE_PROJECT_ID }}
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
