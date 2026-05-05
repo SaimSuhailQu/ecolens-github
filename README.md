@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# EcoLens WebGIS
-=======
 <div align="center">
   <img src="public/logo.png" width="150" alt="EcoLens Logo" />
   <h1>EcoLens WebGIS</h1>
@@ -12,7 +9,6 @@
     <img src="https://img.shields.io/badge/Google%20Earth%20Engine-Powered-orange?style=for-the-badge" alt="GEE Powered" />
   </p>
 </div>
->>>>>>> 069af80 (docs: add logo, badges, live demo link, and FYP team section to README)
 
 EcoLens WebGIS is an advanced, cloud-powered geospatial workstation designed for real-time regional environmental monitoring, climate analysis, and drought assessment. Built as a Final Year Project (FYP), it leverages the massive computational power of Google Earth Engine directly in the browser to make satellite data analysis accessible, fast, and interactive.
 
