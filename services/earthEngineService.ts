@@ -11,9 +11,7 @@ export const initializeGEE = async () => {
   }
   ee.data.clearAuthToken();
   const clientId = import.meta.env.VITE_GEE_OAUTH_CLIENT_ID;
-  const projectId = (import.meta.env.VITE_GEE_PROJECT_ID && import.meta.env.VITE_GEE_PROJECT_ID.trim() !== '') 
-    ? import.meta.env.VITE_GEE_PROJECT_ID 
-    : "ee-saimsuhail5";
+  const projectId = import.meta.env.VITE_GEE_PROJECT_ID; // Do not hardcode a default project
 
   if (!clientId) {
     throw new Error("Google OAuth Client ID not provided in environment variable VITE_GEE_OAUTH_CLIENT_ID.");
@@ -21,15 +19,17 @@ export const initializeGEE = async () => {
 
   return new Promise<void>((resolve, reject) => {
     ee.data.authenticateViaOauth(clientId, () => {
-      // Ensure project is correctly identified
-      const projectPath = projectId.startsWith('projects/') ? projectId : `projects/${projectId}`;
-      const projectRawId = projectId.replace('projects/', '');
+      let projectRawId = null;
 
-      if (ee.data.setProject) {
-        ee.data.setProject(projectRawId);
+      // Only set a specific project if the developer explicitly provided one in .env
+      if (projectId && projectId.trim() !== '') {
+        projectRawId = projectId.replace('projects/', '');
+        if (ee.data.setProject) {
+          ee.data.setProject(projectRawId);
+        }
       }
       
-      // Pass the project ID to initialize. 
+      // Initialize. If projectRawId is null, GEE will automatically use the logged-in user's default project!
       ee.initialize(null, null, () => {
         isInitialized = true;
         resolve();
