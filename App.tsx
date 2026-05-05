@@ -80,6 +80,7 @@ const App: React.FC = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 1 - i);
 
@@ -263,7 +264,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSearch = async (query: string, type: 'global' | 'local') => {
+  const handleSearch = (query: string, type: 'global' | 'local') => {
     if (type === 'global') {
       setSearchQuery(query);
       setLocalSearchResults([]);
@@ -272,26 +273,45 @@ const App: React.FC = () => {
       setSearchResults([]);
     }
 
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
     if (query.length < 3) {
       type === 'global' ? setSearchResults([]) : setLocalSearchResults([]);
+      setIsSearching(null);
       return;
     }
 
     setIsSearching(type);
-    try {
-      const countryCode = selectedCountry === 'Pakistan' ? 'pk' : '';
-      const url = type === 'global'
-        ? `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
-        : `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=${countryCode}`;
+    
+    // Debounce the API call by 1000ms to comply with Nominatim's 1 request/sec limit
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const countryCode = selectedCountry === 'Pakistan' ? 'pk' : '';
+        const url = type === 'global'
+          ? `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
+          : `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=${countryCode}`;
 
-      const response = await fetch(url);
-      const data = await response.json();
-      type === 'global' ? setSearchResults(data) : setLocalSearchResults(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSearching(null);
-    }
+        const response = await fetch(url, {
+          headers: {
+            'Accept-Language': 'en-US,en;q=0.9'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        type === 'global' ? setSearchResults(data) : setLocalSearchResults(data);
+      } catch (e) {
+        console.error("Nominatim search error:", e);
+        type === 'global' ? setSearchResults([]) : setLocalSearchResults([]);
+      } finally {
+        setIsSearching(null);
+      }
+    }, 1000);
   };
 
   const handleSearchResultClick = async (result: any) => {
