@@ -28,6 +28,11 @@ export const initializeGEE = async () => {
         if (ee.data.setProject) {
           ee.data.setProject(projectRawId);
         }
+      } else {
+        // Explicitly clear any cached project from previous sessions
+        if (ee.data.setProject) {
+          ee.data.setProject(null);
+        }
       }
       
       // Initialize. If projectRawId is null, GEE will automatically use the logged-in user's default project!
