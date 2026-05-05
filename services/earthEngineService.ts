@@ -107,27 +107,33 @@ const evaluateWithSignal = <T>(eeObject: any, signal?: AbortSignal): Promise<T> 
 
 const getTiffUrlWithRetry = (image: any, name: string, region: any, initialScale: number): Promise<string | null> => {
   return new Promise((resolve) => {
-    // Expanded scales for large regions (Punjab, provinces, etc.)
-    const scalesToTry = [initialScale, 50, 100, 250, 500, 1000, 2500, 5000].filter((s, i, a) => s >= initialScale && a.indexOf(s) === i);
-    let currentAttempt = 0;
-    
     // Simplify region for download to prevent complexity errors
     const downloadRegion = region.bounds();
 
-    const tryDownload = (scale: number) => {
-      image.getDownloadURL({ name, scale, region: downloadRegion, format: 'GEO_TIFF' }, (url: string, error: any) => {
+    // Dynamically calculate a safe scale to avoid 400 Bad Request due to pixel limits
+    downloadRegion.area(100).evaluate((areaSqMeters: any, err: any) => {
+      if (err || !areaSqMeters) {
+        resolve(null);
+        return;
+      }
+      
+      // Calculate minimum scale to keep total pixels under a safe threshold (~250,000 pixels)
+      // area = width * height = (pixels_x * scale) * (pixels_y * scale) = total_pixels * scale^2
+      // scale = sqrt(area / maxPixels)
+      const maxSafePixels = 250000;
+      const minScale = Math.ceil(Math.sqrt(areaSqMeters / maxSafePixels));
+      const safeScale = Math.max(initialScale, minScale);
+
+      // We only try once. If it fails, it's likely a project permissions issue (earthengine-legacy)
+      image.getDownloadURL({ name, scale: safeScale, region: downloadRegion, format: 'GEO_TIFF' }, (url: string, error: any) => {
         if (error) {
-          if (currentAttempt < scalesToTry.length - 1) {
-            currentAttempt++;
-            tryDownload(scalesToTry[currentAttempt]);
-          } else {
-            console.error("GeoTIFF export failed after all retries:", error);
-            resolve(null);
-          }
-        } else resolve(url);
+          console.warn("GeoTIFF export failed. This is expected if using the default earthengine-legacy project without a linked Google Cloud Project. Error:", error);
+          resolve(null);
+        } else {
+          resolve(url);
+        }
       });
-    };
-    tryDownload(initialScale);
+    });
   });
 };
 
