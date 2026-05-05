@@ -55,6 +55,37 @@ const validateAndCleanGeometry = (geometry: any) => {
   return rawGeometry;
 };
 
+const evaluateWithSignal = <T>(eeObject: any, signal?: AbortSignal): Promise<T> => {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      return reject(new DOMException("Aborted", "AbortError"));
+    }
+
+    const abortHandler = () => {
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+
+    if (signal) {
+      signal.addEventListener("abort", abortHandler);
+    }
+
+    eeObject.evaluate((result: T, error: any) => {
+      if (signal) {
+        signal.removeEventListener("abort", abortHandler);
+      }
+      if (error) {
+        reject(new Error(error));
+      } else {
+        if (signal?.aborted) {
+          reject(new DOMException("Aborted", "AbortError"));
+        } else {
+          resolve(result);
+        }
+      }
+    });
+  });
+};
+
 const getTiffUrlWithRetry = (image: any, name: string, region: any, initialScale: number): Promise<string | null> => {
   return new Promise((resolve) => {
     const scalesToTry = [initialScale, 50, 100, 250, 500].filter((s, i, a) => s >= initialScale && a.indexOf(s) === i);
@@ -119,7 +150,7 @@ const getIndexExpression = (id: string, bands: any, img: any) => {
   }
 };
 
-const getLULCData = async (geometry: any, year: number) => {
+const getLULCData = async (geometry: any, year: number, signal?: AbortSignal) => {
   const startDate = `${year}-01-01`;
   const currentYear = new Date().getFullYear();
   const endDate = year === currentYear ? new Date().toISOString().split('T')[0] : `${year}-12-31`;
@@ -129,12 +160,18 @@ const getLULCData = async (geometry: any, year: number) => {
     { name: 'Built Area', color: '#C4281B' }, { name: 'Bare Ground', color: '#A59B8F' }, { name: 'Snow & Ice', color: '#B39FE1' }
   ];
   const lulcCol = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(startDate, endDate).filterBounds(geometry);
-  const size = await new Promise<number>((resolve) => lulcCol.size().evaluate(resolve));
+  const size = await evaluateWithSignal<number>(lulcCol.size(), signal);
   if (size === 0) return { visualization: null, data: [] };
   const lulcImage = lulcCol.select('label').mode().clip(geometry);
   const lulcVis = { min: 0, max: 8, palette: lulcClasses.map(c => c.color) };
-  const lulcMap = await new Promise<any>((resolve) => lulcImage.getMap(lulcVis, (obj: any) => resolve(obj ? { mapId: obj.mapid, url: obj.urlFormat } : null)));
-  const lulcChart = await new Promise<any>((resolve) => lulcImage.reduceRegion({ reducer: ee.Reducer.frequencyHistogram(), geometry, scale: 10, maxPixels: 1e11 }).evaluate(resolve));
+  const lulcMap = await new Promise<any>((resolve, reject) => {
+    if (signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
+    lulcImage.getMap(lulcVis, (obj: any) => {
+      if (signal?.aborted) reject(new DOMException("Aborted", "AbortError"));
+      else resolve(obj ? { mapId: obj.mapid, url: obj.urlFormat } : null);
+    });
+  });
+  const lulcChart = await evaluateWithSignal<any>(lulcImage.reduceRegion({ reducer: ee.Reducer.frequencyHistogram(), geometry, scale: 10, maxPixels: 1e11 }), signal);
   if (!lulcChart || !lulcChart.label) return { visualization: lulcMap, data: [] };
   const totalPixels = Object.values(lulcChart.label as object).reduce((a, b) => a + b, 0);
   const lulcData = Object.entries(lulcChart.label as object).map(([id, count]) => ({ name: lulcClasses[Number(id)]?.name, percentage: (count / totalPixels) * 100, color: lulcClasses[Number(id)]?.color })).filter(d => d.name);
@@ -160,8 +197,10 @@ export const getExportUrl = async (region: any, year: number, resolution: number
     return await getTiffUrlWithRetry(exportImage, `ecolens_export_${year}`, geometry, resolution);
 };
 
-export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number, level: AnalysisLevel, resolution: number, startDate: string, endDate: string, analysisCategory: string = 'All'): Promise<RegionAnalysis> => {
+export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number, level: AnalysisLevel, resolution: number, startDate: string, endDate: string, analysisCategory: string = 'All', signal?: AbortSignal): Promise<RegionAnalysis> => {
   if (!isInitialized) throw new Error("Earth Engine not initialized.");
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
   const cleanedGeometry = validateAndCleanGeometry(region.geometry);
   const geometry = level === 'custom' ? ee.Geometry(cleanedGeometry) : ee.Feature(region.geometry).geometry();
   const climateCol = ee.ImageCollection("ECMWF/ERA5_LAND/MONTHLY_AGGR").filterDate(startDate, endDate).filterBounds(geometry);
@@ -179,26 +218,24 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
   const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
   
   const [climateData, droughtData, indicesData] = await Promise.all([
-    new Promise<any>(res => {
+    (async () => {
       const stats = climateCol.map((img: any) => {
         const s = img.reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 27830, bestEffort: true });
         return ee.Feature(null, { m: img.date().format('MM'), t: s.get('temperature_2m'), r: s.get('total_precipitation_sum') });
       });
-      stats.evaluate((features: any) => {
-        res(features?.features?.map((f: any) => f.properties) || []);
-      });
-    }),
-    new Promise<any>(res => {
+      const features: any = await evaluateWithSignal(stats, signal);
+      return features?.features?.map((f: any) => f.properties) || [];
+    })(),
+    (async () => {
       const stats = droughtCol.map((img: any) => {
         const spei = img.expression('pr-pet', {pr:img.select('pr'),pet:img.select('pet')}).rename('spei');
         const s = img.addBands(spei).reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 4638, bestEffort: true });
         return ee.Feature(null, { m: img.date().format('MM'), p: s.get('pdsi'), s: s.get('spei') });
       });
-      stats.evaluate((features: any) => {
-        res(features?.features?.map((f: any) => f.properties) || []);
-      });
-    }),
-    new Promise<any>(res => {
+      const features: any = await evaluateWithSignal(stats, signal);
+      return features?.features?.map((f: any) => f.properties) || [];
+    })(),
+    (async () => {
       // OPTIMIZED: Use server-side mapping for all months at once
       const statsList = ee.List.sequence(1, 12).map((m: any) => {
         const month = ee.Number(m);
@@ -227,13 +264,13 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
         return ee.Feature(null, stats.set('m', ee.Number(m).format('%02d')));
       });
       
-      ee.FeatureCollection(statsList).evaluate((features: any) => {
-        res(features?.features?.map((f: any) => f.properties) || []);
-      });
-    })
+      const features: any = await evaluateWithSignal(ee.FeatureCollection(statsList), signal);
+      return features?.features?.map((f: any) => f.properties) || [];
+    })()
   ]);
 
   const runVisualizationAnalysis = async () => {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     const medianImage = imageCol.median().clip(geometry);
     const viz: any = {};
     
@@ -258,7 +295,13 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
                       idx.category === 'Burn' ? ['#7a5230', '#d5a478', '#fff5d7', '#d4e7b0', '#397d49'] : 
                       idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
         const vis = { min: idx.category === 'Climate' ? -10 : -1, max: idx.category === 'Climate' ? 10 : 1, palette };
-        viz[idx.id] = await new Promise(r => img.getMap(vis, (o: any) => r(o ? { mapId: o.mapid, url: o.urlFormat } : null)));
+        viz[idx.id] = await new Promise<any>((resolve, reject) => {
+          if (signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
+          img.getMap(vis, (obj: any) => {
+            if (signal?.aborted) reject(new DOMException("Aborted", "AbortError"));
+            else resolve(obj ? { mapId: obj.mapid, url: obj.urlFormat } : null);
+          });
+        });
       }
     }));
     
@@ -266,7 +309,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
     return viz;
   };
 
-  const [vizData, lulc] = await Promise.all([runVisualizationAnalysis(), getLULCData(geometry, year)]);
+  const [vizData, lulc] = await Promise.all([runVisualizationAnalysis(), getLULCData(geometry, year, signal)]);
   const monthlyData = months.map((m, i) => {
     const d: any = { month: new Date(year, i).toLocaleString('default', { month: 'short' }) };
     const cs = climateData.find((f: any) => f.m === m);
@@ -343,7 +386,7 @@ export const getLazyMapId = async (indexId: string, regionGeometry: any, metadat
 const CUSTOM_TEHSIL_ASSET = 'projects/ee-saimsuhail5/assets/pak_tehsils'; 
 const CUSTOM_TEHSIL_PROPS = ['adm3_name', 'ADM3_EN', 'NAME_3', 'tehsil', 'TEHSIL', 'name'];
 
-export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLevel): Promise<RegionGeometry | null> => {
+export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLevel, signal?: AbortSignal): Promise<RegionGeometry | null> => {
   if (level === 'custom') return null;
   const point = ee.Geometry.Point([coords.lng, coords.lat]);
   
@@ -373,9 +416,10 @@ export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLe
       // OPTIMIZED: Parallelized Tehsil checks
       const results = await Promise.all(tehsilAssets.map(async (asset) => {
         try {
+          if (signal?.aborted) return null;
           const collection = ee.FeatureCollection(asset.id);
           const feature = collection.filterBounds(point).first();
-          const data = await new Promise<any>((res) => feature.evaluate((f: any) => res(f)));
+          const data = await evaluateWithSignal<any>(feature, signal);
           if (data && data.properties) {
             return { 
               name: (data.properties[asset.prop] || Object.values(data.properties)[0]) + " (Tehsil)", 
@@ -402,14 +446,14 @@ export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLe
   try {
     const collection = ee.FeatureCollection(collectionId);
     const feature = collection.filterBounds(point).first();
-    const data = await new Promise<any>((res) => feature.evaluate((f: any) => res(f)));
+    const data = await evaluateWithSignal<any>(feature, signal);
     
     if (!data) {
       // If Level 3 failed, try Level 2
       if (level === '3') {
         const fallbackCol = ee.FeatureCollection('FAO/GAUL/2015/level2');
         const fallbackFeat = fallbackCol.filterBounds(point).first();
-        const fallbackData = await new Promise<any>((res) => fallbackFeat.evaluate((f: any) => res(f)));
+        const fallbackData = await evaluateWithSignal<any>(fallbackFeat, signal);
         if (fallbackData) {
           return { name: fallbackData.properties['ADM2_NAME'] + " (District)", geometry: fallbackData.geometry, center: coords };
         }
@@ -419,6 +463,7 @@ export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLe
     
     return { name: data.properties[nameProperty] + displayNameSuffix, geometry: data.geometry, center: coords };
   } catch (e) {
+    if (e.name === 'AbortError') throw e;
     console.error("Error fetching region:", e);
     return null;
   }

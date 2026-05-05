@@ -78,8 +78,17 @@ const App: React.FC = () => {
 
   const mapRef = useRef<HTMLDivElement>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 1 - i);
+
+  const handleStopAnalysis = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setStatus(AnalysisStatus.IDLE);
+      setErrorMessage("Analysis cancelled by user.");
+    }
+  };
 
   const handleRunAnalysis = async () => {
     if (!isGeeReady) return;
@@ -87,6 +96,13 @@ const App: React.FC = () => {
     setStatus(AnalysisStatus.LOADING);
     setAnalysis(null);
     setErrorMessage(null);
+
+    // Create a new AbortController for this analysis
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       let region: RegionGeometry | null = selectedRegion;
@@ -104,7 +120,7 @@ const App: React.FC = () => {
         };
       } else if (pendingLocation && (!selectedRegion || selectedRegion.center !== pendingLocation)) {
         // Fetch administrative region if location changed or not yet selected
-        region = await getRegionFromCoords(pendingLocation, analysisLevel);
+        region = await getRegionFromCoords(pendingLocation, analysisLevel, controller.signal);
         if (!region) {
           alert("No administrative region found at the selected location.");
           setStatus(AnalysisStatus.IDLE);
@@ -119,7 +135,16 @@ const App: React.FC = () => {
         return;
       }
 
-      const result = await analyzeRegionWithGEE(region, selectedYear, analysisLevel, resolution, startDate, endDate, analysisCategory);
+      const result = await analyzeRegionWithGEE(
+        region, 
+        selectedYear, 
+        analysisLevel, 
+        resolution, 
+        startDate, 
+        endDate, 
+        analysisCategory,
+        controller.signal
+      );
       setAnalysis(result);
       setStatus(AnalysisStatus.SUCCESS);
       setSelectedDashboardCategory(analysisCategory);
@@ -138,9 +163,17 @@ const App: React.FC = () => {
         setIsSidebarOpen(false);
       }
     } catch (e: any) {
+      if (e.name === 'AbortError' || e.message === 'Aborted') {
+        console.log("Analysis aborted");
+        return;
+      }
       console.error(e);
       setErrorMessage(e.message || "An unexpected error occurred during analysis.");
       setStatus(AnalysisStatus.ERROR);
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
   };
 
@@ -763,14 +796,24 @@ const App: React.FC = () => {
                 </label>
               </div>
 
-              <button
-                onClick={handleRunAnalysis}
-                disabled={!isGeeReady || status === AnalysisStatus.LOADING || (!pendingLocation && !customGeometry)}
-                className="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 disabled:border-slate-700 text-white font-bold py-3 rounded-lg shadow-[0_0_20px_rgba(37,99,235,0.2)] transition-all flex items-center justify-center gap-2"
-              >
-                {status === AnalysisStatus.LOADING ? <Loader2 className="w-5 h-5 animate-spin" /> : <Activity size={18} />}
-                Run Environmental Analysis
-              </button>
+              {status === AnalysisStatus.LOADING ? (
+                <button
+                  onClick={handleStopAnalysis}
+                  className="w-full mt-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold py-3 rounded-lg shadow-[0_0_20px_rgba(225,29,72,0.2)] transition-all flex items-center justify-center gap-2"
+                >
+                  <X size={18} />
+                  Stop Analysis
+                </button>
+              ) : (
+                <button
+                  onClick={handleRunAnalysis}
+                  disabled={!isGeeReady || (!pendingLocation && !customGeometry)}
+                  className="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 disabled:border-slate-700 text-white font-bold py-3 rounded-lg shadow-[0_0_20px_rgba(37,99,235,0.2)] transition-all flex items-center justify-center gap-2"
+                >
+                  <Activity size={18} />
+                  Run Environmental Analysis
+                </button>
+              )}
             </div>
           </div>
 
@@ -798,6 +841,12 @@ const App: React.FC = () => {
               <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4 mx-auto" />
               <h3 className="text-base font-medium text-slate-300">{analysis ? 'Querying Earth Engine...' : `Identifying ${analysisLevel}...`}</h3>
               <p className="text-xs text-slate-500 mt-2 mx-auto">{analysis ? 'Aggregating regional data...' : 'Please wait...'}</p>
+              <button 
+                onClick={handleStopAnalysis}
+                className="mt-6 text-xs bg-slate-800 hover:bg-slate-700 text-red-400 px-4 py-2 rounded-lg border border-slate-700 flex items-center gap-2 transition-colors"
+              >
+                <X size={14} /> Cancel Process
+              </button>
             </div>
           )}
 
