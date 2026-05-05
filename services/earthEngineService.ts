@@ -146,8 +146,19 @@ const getIndexExpression = (id: string, bands: any, img: any) => {
     case 'cali': return img.expression('SWIR2 / SWIR1', { 'SWIR1': b('swir1'), 'SWIR2': b('swir2') });
     case 'doli': return img.expression('SWIR2 / SWIR1', { 'SWIR1': b('swir1'), 'SWIR2': b('swir2') });
     case 'cai': return img.expression('(SWIR1 + SWIR2) / SWIR1', { 'SWIR1': b('swir1'), 'SWIR2': b('swir2') });
-    case 'lst': return bands.thermal ? b('thermal').multiply(0.00341802).add(149.0).subtract(273.15) : null;
-    case 'uhi': return bands.thermal ? b('thermal').multiply(0.00341802).add(149.0).subtract(273.15) : null;
+    case 'lst': {
+      if (!bands.thermal) return null;
+      // Landsat 8/9 ST_B10 to Celsius: DN * 0.00341802 + 149.0 - 273.15
+      const thermal = b('thermal').multiply(0.00341802).add(149.0).subtract(273.15);
+      // Mask non-physical values (outliers) - Range: -30 to 75 Celsius
+      return thermal.updateMask(thermal.gt(-30).and(thermal.lt(75)));
+    }
+    case 'uhi': {
+      if (!bands.thermal) return null;
+      const thermal = b('thermal').multiply(0.00341802).add(149.0).subtract(273.15);
+      // UHI spatial distribution: LST - background (will be adjusted in aggregation)
+      return thermal.updateMask(thermal.gt(-30).and(thermal.lt(75)));
+    }
     default: return null;
   }
 };
