@@ -546,7 +546,9 @@ export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLe
           if (signal?.aborted) return null;
           const collection = ee.FeatureCollection(asset.id);
           const feature = collection.filterBounds(point).first();
-          const data = await evaluateWithSignal<any>(feature, signal);
+          // SIMPLIFY BEFORE DOWNLOAD to prevent 400 Bad Request on large polygons
+          const simplified = ee.Feature(feature.geometry().simplify(100), feature.toDictionary());
+          const data = await evaluateWithSignal<any>(simplified, signal);
           if (data && data.properties) {
             return { 
               name: (data.properties[asset.prop] || Object.values(data.properties)[0]) + " (Tehsil)", 
@@ -573,14 +575,16 @@ export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLe
   try {
     const collection = ee.FeatureCollection(collectionId);
     const feature = collection.filterBounds(point).first();
-    const data = await evaluateWithSignal<any>(feature, signal);
+    const simplified = ee.Feature(feature.geometry().simplify(100), feature.toDictionary());
+    const data = await evaluateWithSignal<any>(simplified, signal);
     
     if (!data) {
       // If Level 3 failed, try Level 2
       if (level === '3') {
         const fallbackCol = ee.FeatureCollection('FAO/GAUL/2015/level2');
         const fallbackFeat = fallbackCol.filterBounds(point).first();
-        const fallbackData = await evaluateWithSignal<any>(fallbackFeat, signal);
+        const simplifiedFallback = ee.Feature(fallbackFeat.geometry().simplify(100), fallbackFeat.toDictionary());
+        const fallbackData = await evaluateWithSignal<any>(simplifiedFallback, signal);
         if (fallbackData) {
           return { name: fallbackData.properties['ADM2_NAME'] + " (District)", geometry: fallbackData.geometry, center: coords };
         }
@@ -642,7 +646,9 @@ export const getTehsils = async (district: string): Promise<{name: string, geome
     const districtFilter = ee.Filter.or(...filters);
     
     return new Promise<any>((res, rej) => {
-      col.filter(districtFilter).evaluate((d: any, err: any) => {
+      // Simplify before download to reduce payload
+      const simplifiedCol = col.filter(districtFilter).map((f: any) => ee.Feature(f.geometry().simplify(100), f.toDictionary()));
+      simplifiedCol.evaluate((d: any, err: any) => {
         if (err) rej(err);
         else res(d);
       });
@@ -672,7 +678,8 @@ export const getTehsils = async (district: string): Promise<{name: string, geome
        for (const assetId of assetsToTry) {
          try {
            const col = ee.FeatureCollection(assetId);
-           const result: any = await new Promise((res) => col.evaluate((d: any) => res(d)));
+           const simplifiedCol = col.map((f: any) => ee.Feature(f.geometry().simplify(100), f.toDictionary()));
+           const result: any = await new Promise((res) => simplifiedCol.evaluate((d: any) => res(d)));
            if (result && result.features) {
              const filtered = result.features.filter((f: any) => {
                 return Object.values(f.properties).some(v => {
