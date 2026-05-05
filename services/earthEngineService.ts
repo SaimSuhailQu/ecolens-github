@@ -30,14 +30,14 @@ export const initializeGEE = async () => {
       }
       
       // Pass the project ID/path to initialize. 
-      // Some versions prefer the raw ID, others the projects/ path.
+      // The signature is: initialize(baseurl, tileurl, successCallback, errorCallback, authCallback, project)
       ee.initialize(null, null, () => {
         isInitialized = true;
         resolve();
-      }, (e: any) => reject(new Error("GEE Initialization Failed: " + e)), projectRawId);
+      }, (e: any) => reject(new Error("GEE Initialization Failed: " + e)), null, projectRawId);
     }, (e: any) => reject(new Error("GEE Authentication Failed: " + e)),
     ['https://www.googleapis.com/auth/earthengine.readonly'],
-    () => reject(new Error("Authentication cancelled by user.")), true);
+    () => reject(new Error("Authentication cancelled by user.")));
   });
 };
 
