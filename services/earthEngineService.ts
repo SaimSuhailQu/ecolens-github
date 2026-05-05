@@ -27,25 +27,25 @@ export const initializeGEE = async () => {
     console.error("Failed to parse Service Account Key:", e);
   }
 
-  const tryServiceAccountFallback = (originalError: any) => {
-    console.log("Attempting Service Account fallback due to error:", originalError);
-    if (!saKey) {
-      return reject(new Error("GEE Initialization Failed: " + originalError + ". Also no Service Account key found for fallback."));
-    }
-
-    ee.data.authenticateViaPrivateKey(saKey, () => {
-      const saProjectId = saKey.project_id || "ee-saimsuhail5";
-      if (ee.data.setProject) ee.data.setProject(saProjectId);
-      
-      ee.initialize(null, null, () => {
-        console.log("GEE initialized successfully via Service Account.");
-        isInitialized = true;
-        resolve();
-      }, (e: any) => reject(new Error("GEE Hybrid Initialization Failed: " + e)), null, saProjectId);
-    }, (e: any) => reject(new Error("Service Account Fallback Failed: " + e)));
-  };
-
   return new Promise<void>((resolve, reject) => {
+    const tryServiceAccountFallback = (originalError: any) => {
+      console.log("Attempting Service Account fallback due to error:", originalError);
+      if (!saKey) {
+        return reject(new Error("GEE Initialization Failed: " + originalError + ". Also no Service Account key found for fallback."));
+      }
+
+      ee.data.authenticateViaPrivateKey(saKey, () => {
+        const saProjectId = saKey.project_id || "ee-saimsuhail5";
+        if (ee.data.setProject) ee.data.setProject(saProjectId);
+        
+        ee.initialize(null, null, () => {
+          console.log("GEE initialized successfully via Service Account.");
+          isInitialized = true;
+          resolve();
+        }, (e: any) => reject(new Error("GEE Hybrid Initialization Failed: " + e)), null, saProjectId);
+      }, (e: any) => reject(new Error("Service Account Fallback Failed: " + e)));
+    };
+
     // Stage 1: User OAuth
     ee.data.authenticateViaOauth(clientId, () => {
       const projectRawId = projectId.replace('projects/', '');
