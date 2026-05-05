@@ -318,7 +318,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
            const dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(startDate, endDate).filterBounds(geometry).select('label').mode();
            const ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));
            const ruralStats = lst.updateMask(ruralMask).reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 500, bestEffort: true });
-           const ruralMean = ee.Number(ruralStats.get('lst'));
+           const ruralMean = ee.Number(ruralStats.get('lst', 0));
            img = lst.subtract(ruralMean);
          }
       } else {
@@ -421,7 +421,7 @@ export const getLazyMapId = async (indexId: string, regionGeometry: any, metadat
            const dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).select('label').mode();
            const ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));
            const ruralStats = lst.updateMask(ruralMask).reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 500, bestEffort: true });
-           const ruralMean = ee.Number(ruralStats.get('lst'));
+           const ruralMean = ee.Number(ruralStats.get('lst', 0));
            return lst.subtract(ruralMean);
         })() :
         getIndexExpression(idx.id, metadata.bands, medianImage));
