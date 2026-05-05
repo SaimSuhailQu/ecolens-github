@@ -312,6 +312,15 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
       if (idx.id === 'pdsi' || idx.id === 'spei') {
          const droughtImg = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(startDate, endDate).filterBounds(geometry).median();
          img = idx.id === 'pdsi' ? droughtImg.select('pdsi') : droughtImg.expression('pr-pet',{pr:droughtImg.select('pr'),pet:droughtImg.select('pet')});
+      } else if (idx.id === 'uhi') {
+         const lst = getIndexExpression('lst', bands, medianImage);
+         if (lst) {
+           const dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(startDate, endDate).filterBounds(geometry).select('label').mode();
+           const ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));
+           const ruralStats = lst.updateMask(ruralMask).reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 500, bestEffort: true });
+           const ruralMean = ee.Number(ruralStats.get('lst'));
+           img = lst.subtract(ruralMean);
+         }
       } else {
          img = getIndexExpression(idx.id, bands, medianImage);
       }
@@ -323,8 +332,8 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
                       idx.category === 'Heat' ? ['#0000ff', '#00ffff', '#ffff00', '#ff7f00', '#ff0000'] :
                       idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
         const vis = { 
-          min: idx.category === 'Climate' ? -10 : idx.category === 'Heat' ? 10 : -1, 
-          max: idx.category === 'Climate' ? 10 : idx.category === 'Heat' ? 50 : 1, 
+          min: idx.category === 'Climate' ? -10 : idx.id === 'uhi' ? 0 : idx.category === 'Heat' ? 10 : -1, 
+          max: idx.category === 'Climate' ? 10 : idx.id === 'uhi' ? 10 : idx.category === 'Heat' ? 50 : 1, 
           palette 
         };
         viz[idx.id] = await new Promise<any>((resolve, reject) => {
@@ -405,7 +414,18 @@ export const getLazyMapId = async (indexId: string, regionGeometry: any, metadat
   let img = idx.id === 'pdsi' || idx.id === 'spei' ? 
       (idx.id === 'pdsi' ? ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().select('pdsi') : 
        ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().expression('pr-pet',{pr:ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().select('pr'),pet:ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).median().select('pet')})) : 
-      getIndexExpression(idx.id, metadata.bands, medianImage);
+      (idx.id === 'uhi' ? 
+        (() => {
+           const lst = getIndexExpression('lst', metadata.bands, medianImage);
+           if (!lst) return null;
+           const dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(metadata.startDate, metadata.endDate).filterBounds(geometry).select('label').mode();
+           const ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));
+           const ruralStats = lst.updateMask(ruralMask).reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 500, bestEffort: true });
+           const ruralMean = ee.Number(ruralStats.get('lst'));
+           return lst.subtract(ruralMean);
+        })() :
+        getIndexExpression(idx.id, metadata.bands, medianImage));
+
   if (!img) return null;
   const palette = idx.category === 'Vegetation' ? ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] : 
                 idx.category === 'Water' ? ['red', 'yellow', 'green', 'cyan', 'blue'] : 
@@ -413,8 +433,8 @@ export const getLazyMapId = async (indexId: string, regionGeometry: any, metadat
                 idx.category === 'Heat' ? ['#0000ff', '#00ffff', '#ffff00', '#ff7f00', '#ff0000'] :
                 idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
   const vis = { 
-    min: idx.category === 'Climate' ? -10 : idx.category === 'Heat' ? 10 : -1, 
-    max: idx.category === 'Climate' ? 10 : idx.category === 'Heat' ? 50 : 1, 
+    min: idx.category === 'Climate' ? -10 : idx.id === 'uhi' ? 0 : idx.category === 'Heat' ? 10 : -1, 
+    max: idx.category === 'Climate' ? 10 : idx.id === 'uhi' ? 10 : idx.category === 'Heat' ? 50 : 1, 
     palette 
   };
   return await new Promise(r => img.getMap(vis, (o: any) => r(o ? { mapId: o.mapid, url: o.urlFormat } : null)));
