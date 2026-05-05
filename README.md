@@ -1,6 +1,23 @@
+<<<<<<< HEAD
 # EcoLens WebGIS
+=======
+<div align="center">
+  <img src="public/logo.png" width="150" alt="EcoLens Logo" />
+  <h1>EcoLens WebGIS</h1>
+  <p>
+    <a href="https://saimsuhailqu.github.io/ecolens-github/" target="_blank">
+      <img src="https://img.shields.io/badge/Live%20Demo-Available-brightgreen?style=for-the-badge&logo=github" alt="Live Demo" />
+    </a>
+    <img src="https://img.shields.io/badge/Version-v1.2.0-blue?style=for-the-badge" alt="Version 1.2.0" />
+    <img src="https://img.shields.io/badge/Google%20Earth%20Engine-Powered-orange?style=for-the-badge" alt="GEE Powered" />
+  </p>
+</div>
+>>>>>>> 069af80 (docs: add logo, badges, live demo link, and FYP team section to README)
 
 EcoLens WebGIS is an advanced, cloud-powered geospatial workstation designed for real-time regional environmental monitoring, climate analysis, and drought assessment. Built as a Final Year Project (FYP), it leverages the massive computational power of Google Earth Engine directly in the browser to make satellite data analysis accessible, fast, and interactive.
+
+## 🌐 Live Demo
+Access the live application here: **[EcoLens WebGIS Live](https://saimsuhailqu.github.io/ecolens-github/)**
 
 ## 🌟 Key Features
 
@@ -42,3 +59,7 @@ EcoLens WebGIS is an advanced, cloud-powered geospatial workstation designed for
 
 ## 🔐 Authentication & Scopes
 This application uses client-side Google OAuth to authenticate with Earth Engine. It strictly requests the `https://www.googleapis.com/auth/earthengine.readonly` scope. No user data or authentication tokens are stored on external servers. All processing is routed securely through the user's browser to Google's infrastructure.
+
+## 👥 FYP Team & Collaborators
+* **Saim Suhail Qureshi** (`saim.suhail.5@gmail.com`) - Lead Developer & Geospatial Architect
+* **Muhammad Arsal** (`muhammadarsalattari@gmail.com`) - Co-Developer & Data Integration
