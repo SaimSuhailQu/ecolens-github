@@ -462,7 +462,7 @@ export const getRegionFromCoords = async (coords: Coordinates, level: AnalysisLe
     }
     
     return { name: data.properties[nameProperty] + displayNameSuffix, geometry: data.geometry, center: coords };
-  } catch (e) {
+  } catch (e: any) {
     if (e.name === 'AbortError') throw e;
     console.error("Error fetching region:", e);
     return null;
