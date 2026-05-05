@@ -149,13 +149,13 @@ const getIndexExpression = (id: string, bands: any, img: any) => {
     case 'lst': {
       if (!bands.thermal) return null;
       // Landsat 8/9 ST_B10 to Celsius: DN * 0.00341802 + 149.0 - 273.15
-      const thermal = b('thermal').multiply(0.00341802).add(149.0).subtract(273.15);
+      const thermal = b('thermal').multiply(0.00341802).add(149.0).subtract(273.15).rename('lst');
       // Mask non-physical values (outliers) - Range: -30 to 75 Celsius
       return thermal.updateMask(thermal.gt(-30).and(thermal.lt(75)));
     }
     case 'uhi': {
       if (!bands.thermal) return null;
-      const thermal = b('thermal').multiply(0.00341802).add(149.0).subtract(273.15);
+      const thermal = b('thermal').multiply(0.00341802).add(149.0).subtract(273.15).rename('uhi');
       // UHI spatial distribution: LST - background (will be adjusted in aggregation)
       return thermal.updateMask(thermal.gt(-30).and(thermal.lt(75)));
     }
@@ -269,11 +269,11 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
           .forEach(i => {
             if (i.id === 'uhi' && lstImg) {
               const ruralStats = lstImg.updateMask(ruralMask).reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 500, bestEffort: true });
-              const ruralMean = ee.Number(ruralStats.get('lst'));
+              const ruralMean = ee.Number(ruralStats.get('lst', 0));
               const uhiImg = lstImg.subtract(ruralMean).rename('uhi');
               all = all.addBands(uhiImg);
             } else if (i.id === 'lst' && lstImg) {
-              all = all.addBands(lstImg.rename('lst'));
+              all = all.addBands(lstImg);
             } else {
               const idx = getIndexExpression(i.id, bands, monthlyImg);
               if (idx) all = all.addBands(idx.rename(i.id));
