@@ -677,39 +677,75 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Analysis Engine Section */}
-            <div className="col-span-1 space-y-4 bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 backdrop-blur-sm shadow-xl flex flex-col justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-cyan-400 flex items-center gap-2 border-b border-slate-800 pb-2 mb-4">
-                  <Activity size={16} /> Analysis Engine
-                </h3>
-                <div className="space-y-4">
+            {/* Analysis Engine & Controls Section */}
+            <div className="col-span-1 space-y-4 bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 backdrop-blur-sm shadow-xl flex flex-col">
+              <h3 className="text-sm font-bold text-cyan-400 flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
+                <Activity size={16} /> Analysis Engine
+              </h3>
+              
+              <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="res-select" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Search size={14} className="text-cyan-400" /> Resolution</label>
-                    <select id="res-select" name="res-select" value={resolution} onChange={handleResolutionChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-slate-700 disabled:opacity-50 transition-colors">
-                      <option value="10">10m (Sentinel-2)</option>
-                      <option value="30">30m (Landsat 8/9)</option>
+                    <label htmlFor="res-select" className="text-[10px] text-slate-400 font-medium flex items-center gap-2 mb-1"><Search size={12} className="text-cyan-400" /> Resolution</label>
+                    <select id="res-select" name="res-select" value={resolution} onChange={handleResolutionChange} disabled={!isGeeReady} className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-cyan-500/50 outline-none appearance-none cursor-pointer hover:bg-slate-700 disabled:opacity-50 transition-colors">
+                      <option value="10">10m (S2)</option>
+                      <option value="30">30m (L8/9)</option>
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="analysis-category" className="text-xs text-slate-400 font-medium flex items-center gap-2 mb-1.5"><Activity size={14} className="text-emerald-400" /> Category Focus</label>
+                    <label htmlFor="analysis-category" className="text-[10px] text-slate-400 font-medium flex items-center gap-2 mb-1"><Activity size={12} className="text-emerald-400" /> Category</label>
                     <select
                       id="analysis-category"
                       name="analysis-category"
                       value={analysisCategory}
                       onChange={(e) => setAnalysisCategory(e.target.value)}
                       disabled={!isGeeReady || status === AnalysisStatus.LOADING}
-                      className="w-full bg-emerald-900/20 border border-emerald-500/30 text-emerald-300 text-xs rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none pr-8 cursor-pointer hover:bg-emerald-900/40 disabled:opacity-50 transition-all font-bold"
+                      className="w-full bg-emerald-900/20 border border-emerald-500/30 text-emerald-300 text-xs rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-emerald-500/50 outline-none appearance-none cursor-pointer hover:bg-emerald-900/40 disabled:opacity-50 transition-all font-bold"
                     >
-                      <option value="All">All Categories (Slow)</option>
-                      <option value="Vegetation">Vegetation (Fast)</option>
-                      <option value="Water">Water (Fast)</option>
-                      <option value="Burn">Burn (Fast)</option>
-                      <option value="Urban">Urban (Fast)</option>
-                      <option value="Geological">Geological (Fast)</option>
-                      <option value="Climate">Climate (Fast)</option>
+                      <option value="All">All Categories</option>
+                      <option value="Vegetation">Vegetation</option>
+                      <option value="Water">Water</option>
+                      <option value="Burn">Burn</option>
+                      <option value="Urban">Urban</option>
+                      <option value="Geological">Geological</option>
+                      <option value="Climate">Climate</option>
+                      <option value="Heat">Heat (LST/UHI)</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="space-y-3 pt-2 border-t border-slate-800/50">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDrawingMode(!drawingMode)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 text-[10px] font-bold rounded-lg border transition-all ${drawingMode ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
+                    >
+                      <Square size={12} /> {drawingMode ? 'Cancel' : 'Draw'}
+                    </button>
+                    <label htmlFor="file-import" className="flex-1 flex items-center justify-center gap-2 py-2 text-[10px] font-bold rounded-lg border bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 cursor-pointer transition-all">
+                      <Download size={12} className="rotate-180" /> Import
+                      <input id="file-import" name="file-import" type="file" onChange={handleFileUpload} accept=".kml,.kmz,.zip,.json,.geojson" className="hidden" />
+                    </label>
+                  </div>
+
+                  {status === AnalysisStatus.LOADING ? (
+                    <button
+                      onClick={handleStopAnalysis}
+                      className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold py-2.5 rounded-lg shadow-[0_0_15px_rgba(225,29,72,0.15)] transition-all flex items-center justify-center gap-2 text-xs"
+                    >
+                      <X size={16} />
+                      Stop Analysis
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleRunAnalysis}
+                      disabled={!isGeeReady || (!pendingLocation && !customGeometry)}
+                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 disabled:border-slate-700 text-white font-bold py-2.5 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.15)] transition-all flex items-center justify-center gap-2 text-xs"
+                    >
+                      <Activity size={16} />
+                      Run Analysis
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -778,43 +814,6 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
-
-            <div className="flex flex-col gap-3 mt-4 bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50 backdrop-blur-sm shadow-xl">
-              <h3 className="text-sm font-bold text-blue-400 flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
-                <MapPin size={16} /> Area Selection
-              </h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setDrawingMode(!drawingMode)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg border transition-all ${drawingMode ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
-                >
-                  <Square size={14} /> {drawingMode ? 'Cancel Drawing' : 'Draw Polygon'}
-                </button>
-                <label htmlFor="file-import" className="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg border bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 cursor-pointer transition-all">
-                  <Download size={14} className="rotate-180" /> Import File
-                  <input id="file-import" name="file-import" type="file" onChange={handleFileUpload} accept=".kml,.kmz,.zip,.json,.geojson" className="hidden" />
-                </label>
-              </div>
-
-              {status === AnalysisStatus.LOADING ? (
-                <button
-                  onClick={handleStopAnalysis}
-                  className="w-full mt-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold py-3 rounded-lg shadow-[0_0_20px_rgba(225,29,72,0.2)] transition-all flex items-center justify-center gap-2"
-                >
-                  <X size={18} />
-                  Stop Analysis
-                </button>
-              ) : (
-                <button
-                  onClick={handleRunAnalysis}
-                  disabled={!isGeeReady || (!pendingLocation && !customGeometry)}
-                  className="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 disabled:border-slate-700 text-white font-bold py-3 rounded-lg shadow-[0_0_20px_rgba(37,99,235,0.2)] transition-all flex items-center justify-center gap-2"
-                >
-                  <Activity size={18} />
-                  Run Environmental Analysis
-                </button>
-              )}
-            </div>
           </div>
 
           {!isGeeReady ? (

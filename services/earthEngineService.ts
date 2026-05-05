@@ -146,6 +146,8 @@ const getIndexExpression = (id: string, bands: any, img: any) => {
     case 'cali': return img.expression('SWIR2 / SWIR1', { 'SWIR1': b('swir1'), 'SWIR2': b('swir2') });
     case 'doli': return img.expression('SWIR2 / SWIR1', { 'SWIR1': b('swir1'), 'SWIR2': b('swir2') });
     case 'cai': return img.expression('(SWIR1 + SWIR2) / SWIR1', { 'SWIR1': b('swir1'), 'SWIR2': b('swir2') });
+    case 'lst': return bands.thermal ? b('thermal').multiply(0.00341802).add(149.0).subtract(273.15) : null;
+    case 'uhi': return bands.thermal ? b('thermal').multiply(0.00341802).add(149.0).subtract(273.15) : null;
     default: return null;
   }
 };
@@ -185,7 +187,7 @@ export const getExportUrl = async (region: any, year: number, resolution: number
     const medianImage = imageCol.median().clip(geometry);
     const bands = resolution === 10 ? 
         { blue: 'B2', green: 'B3', red: 'B4', nir: 'B8', swir1: 'B11', swir2: 'B12', re1: 'B5', re2: 'B6', re3: 'B7' } :
-        { blue: 'SR_B2', green: 'SR_B3', red: 'SR_B4', nir: 'SR_B5', swir1: 'SR_B6', swir2: 'SR_B7', re1: 'SR_B5', re2: 'SR_B5', re3: 'SR_B5' };
+        { blue: 'SR_B2', green: 'SR_B3', red: 'SR_B4', nir: 'SR_B5', swir1: 'SR_B6', swir2: 'SR_B7', re1: 'SR_B5', re2: 'SR_B5', re3: 'SR_B5', thermal: 'ST_B10' };
     
     let exportImage = ee.Image([]);
     selectedIndices.forEach(id => {
@@ -207,7 +209,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
   const droughtCol = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(startDate, endDate).filterBounds(geometry);
   const bands = resolution === 10 ? 
     { blue: 'B2', green: 'B3', red: 'B4', nir: 'B8', swir1: 'B11', swir2: 'B12', re1: 'B5', re2: 'B6', re3: 'B7' } :
-    { blue: 'SR_B2', green: 'SR_B3', red: 'SR_B4', nir: 'SR_B5', swir1: 'SR_B6', swir2: 'SR_B7', re1: 'SR_B5', re2: 'SR_B5', re3: 'SR_B5' };
+    { blue: 'SR_B2', green: 'SR_B3', red: 'SR_B4', nir: 'SR_B5', swir1: 'SR_B6', swir2: 'SR_B7', re1: 'SR_B5', re2: 'SR_B5', re3: 'SR_B5', thermal: 'ST_B10' };
   
   const imageCol = ee.ImageCollection(resolution === 10 ? 'COPERNICUS/S2_SR' : 'LANDSAT/LC08/C02/T1_L2')
     .filterDate(startDate, endDate)
@@ -293,8 +295,13 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
         const palette = idx.category === 'Vegetation' ? ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] : 
                       idx.category === 'Water' ? ['red', 'yellow', 'green', 'cyan', 'blue'] : 
                       idx.category === 'Burn' ? ['#7a5230', '#d5a478', '#fff5d7', '#d4e7b0', '#397d49'] : 
+                      idx.category === 'Heat' ? ['#0000ff', '#00ffff', '#ffff00', '#ff7f00', '#ff0000'] :
                       idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
-        const vis = { min: idx.category === 'Climate' ? -10 : -1, max: idx.category === 'Climate' ? 10 : 1, palette };
+        const vis = { 
+          min: idx.category === 'Climate' ? -10 : idx.category === 'Heat' ? 10 : -1, 
+          max: idx.category === 'Climate' ? 10 : idx.category === 'Heat' ? 50 : 1, 
+          palette 
+        };
         viz[idx.id] = await new Promise<any>((resolve, reject) => {
           if (signal?.aborted) return reject(new DOMException("Aborted", "AbortError"));
           img.getMap(vis, (obj: any) => {
@@ -378,8 +385,13 @@ export const getLazyMapId = async (indexId: string, regionGeometry: any, metadat
   const palette = idx.category === 'Vegetation' ? ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] : 
                 idx.category === 'Water' ? ['red', 'yellow', 'green', 'cyan', 'blue'] : 
                 idx.category === 'Burn' ? ['#7a5230', '#d5a478', '#fff5d7', '#d4e7b0', '#397d49'] : 
+                idx.category === 'Heat' ? ['#0000ff', '#00ffff', '#ffff00', '#ff7f00', '#ff0000'] :
                 idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
-  const vis = { min: idx.category === 'Climate' ? -10 : -1, max: idx.category === 'Climate' ? 10 : 1, palette };
+  const vis = { 
+    min: idx.category === 'Climate' ? -10 : idx.category === 'Heat' ? 10 : -1, 
+    max: idx.category === 'Climate' ? 10 : idx.category === 'Heat' ? 50 : 1, 
+    palette 
+  };
   return await new Promise(r => img.getMap(vis, (o: any) => r(o ? { mapId: o.mapid, url: o.urlFormat } : null)));
 };
 

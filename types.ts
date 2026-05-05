@@ -20,7 +20,7 @@ export interface IndexInfo {
   id: string;
   name: string;
   description: string;
-  category: 'Vegetation' | 'Water' | 'Burn' | 'Urban' | 'Geological' | 'Climate';
+  category: 'Vegetation' | 'Water' | 'Burn' | 'Urban' | 'Geological' | 'Climate' | 'Heat';
 }
 
 export const AVAILABLE_INDICES: IndexInfo[] = [
@@ -67,6 +67,10 @@ export const AVAILABLE_INDICES: IndexInfo[] = [
   { id: 'doli', name: 'DOLI', category: 'Geological', description: 'Dolomite Index' },
   { id: 'cai', name: 'CAI', category: 'Geological', description: 'Cellulose Absorption Index' },
   
+  // Heat
+  { id: 'lst', name: 'LST', category: 'Heat', description: 'Land Surface Temperature' },
+  { id: 'uhi', name: 'UHI', category: 'Heat', description: 'Urban Heat Island Effect' },
+
   // Climate
   { id: 'pdsi', name: 'PDSI', category: 'Climate', description: 'Palmer Drought Severity Index' },
   { id: 'spei', name: 'SPEI', category: 'Climate', description: 'Standardized Precipitation-Evapotranspiration Index' },
