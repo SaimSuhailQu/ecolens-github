@@ -304,7 +304,22 @@ const App: React.FC = () => {
 
     // Auto-analysis logic...
     if (isGeeReady) {
-      const region = await getRegionFromCoords(coords, '2');
+      // Determine appropriate level from Nominatim results
+      let detectedLevel: AnalysisLevel = analysisLevel;
+      const type = result.type || result.addresstype || '';
+      const category = result.class || '';
+
+      if (type === 'country') detectedLevel = '0';
+      else if (type === 'state' || type === 'province') detectedLevel = '1';
+      else if (type === 'district' || type === 'county' || category === 'boundary' && type === 'administrative') {
+        // Many districts in Pakistan are tagged as administrative/boundary
+        detectedLevel = '2';
+      } else if (type === 'city' || type === 'town' || type === 'village' || type === 'tehsil') {
+        detectedLevel = '3';
+      }
+
+      setAnalysisLevel(detectedLevel);
+      const region = await getRegionFromCoords(coords, detectedLevel);
       if (region) setSelectedRegion(region);
     }
   };
