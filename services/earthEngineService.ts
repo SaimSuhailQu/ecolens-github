@@ -11,7 +11,7 @@ export const initializeGEE = async () => {
   }
   ee.data.clearAuthToken();
   const clientId = import.meta.env.VITE_GEE_OAUTH_CLIENT_ID;
-  const projectId = import.meta.env.VITE_GEE_PROJECT_ID || "studio-4853921466-8cefa";
+  const projectId = import.meta.env.VITE_GEE_PROJECT_ID || "ee-saimsuhail5";
 
   if (!clientId) {
     throw new Error("Google OAuth Client ID not provided in environment variable VITE_GEE_OAUTH_CLIENT_ID.");
