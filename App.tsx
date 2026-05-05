@@ -541,13 +541,42 @@ const App: React.FC = () => {
       )}
 
       {showSettings && (
-        <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-md shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Globe className="w-5 h-5" /> Authorize EcoLens WebGIS</h2>
-            <p className="text-sm text-slate-400 mb-6">This app requires Google Earth Engine access. Please log in to authorize the connection.</p>
-            <button onClick={handleLogin} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded transition-colors flex items-center justify-center gap-2">
-              <img src="https://www.google.com/favicon.ico" alt="Google icon" className="w-4 h-4" /> Login with Google
-            </button>
+        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-lg flex items-center justify-center p-4 transition-all duration-500 animate-in fade-in">
+          <div className="bg-slate-900/80 border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-[0_0_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transform transition-all hover:scale-[1.02] duration-300">
+            <div className="flex flex-col items-center text-center space-y-6">
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
+                <img 
+                  src="/logo.png" 
+                  alt="EcoLens Logo" 
+                  className="relative w-24 h-24 rounded-2xl shadow-2xl transition-transform duration-500 group-hover:rotate-3 group-hover:scale-110 cursor-pointer" 
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <h2 className="text-3xl font-extrabold text-white tracking-tight">
+                  EcoLens <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">WebGIS</span>
+                </h2>
+                <p className="text-slate-400 text-sm font-medium leading-relaxed">
+                  Advanced spatiotemporal analysis workstation powered by Google Earth Engine.
+                </p>
+              </div>
+
+              <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-4"></div>
+
+              <button 
+                onClick={handleLogin} 
+                className="group relative w-full bg-white text-slate-950 font-bold py-4 rounded-2xl transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-50 to-cyan-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5 relative z-10" />
+                <span className="relative z-10">Authorize with Google Account</span>
+              </button>
+
+              <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold">
+                Secure Authentication via Google OAuth
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -556,9 +585,9 @@ const App: React.FC = () => {
         <header className="flex-shrink-0">
           <div className="p-5 border-b border-slate-800">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 mb-1">
-                <Leaf className="w-6 h-6 text-emerald-500" />
-                <h1 className="text-xl font-bold text-white tracking-tight">EcoLens <span className="text-slate-500 font-normal">WebGIS</span></h1>
+              <div className="flex items-center gap-3 mb-1 group cursor-pointer">
+                <img src="/logo.png" alt="Logo" className="w-8 h-8 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300" />
+                <h1 className="text-xl font-bold text-white tracking-tight">EcoLens <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">WebGIS</span></h1>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-white" title="Close Sidebar">
