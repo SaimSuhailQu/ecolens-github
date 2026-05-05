@@ -547,7 +547,7 @@ const App: React.FC = () => {
               <div className="relative group">
                 <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
                 <img 
-                  src="/logo.png" 
+                  src="logo.png" 
                   alt="EcoLens Logo" 
                   className="relative w-24 h-24 rounded-2xl shadow-2xl transition-transform duration-500 group-hover:rotate-3 group-hover:scale-110 cursor-pointer" 
                 />
@@ -586,7 +586,7 @@ const App: React.FC = () => {
           <div className="p-5 border-b border-slate-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 mb-1 group cursor-pointer">
-                <img src="/logo.png" alt="Logo" className="w-8 h-8 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300" />
+                <img src="logo.png" alt="Logo" className="w-8 h-8 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300" />
                 <h1 className="text-xl font-bold text-white tracking-tight">EcoLens <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">WebGIS</span></h1>
               </div>
               <div className="flex items-center gap-2">
