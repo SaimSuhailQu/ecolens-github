@@ -11,16 +11,19 @@ export const initializeGEE = async () => {
   }
   ee.data.clearAuthToken();
   const clientId = import.meta.env.VITE_GEE_OAUTH_CLIENT_ID;
+  const projectId = import.meta.env.VITE_GEE_PROJECT_ID || "studio-4853921466-8cefa";
+
   if (!clientId) {
     throw new Error("Google OAuth Client ID not provided in environment variable VITE_GEE_OAUTH_CLIENT_ID.");
   }
 
   return new Promise<void>((resolve, reject) => {
     ee.data.authenticateViaOauth(clientId, () => {
+      // Pass the project ID as the 5th argument to ee.initialize
       ee.initialize(null, null, () => {
         isInitialized = true;
         resolve();
-      }, (e: any) => reject(new Error("GEE Initialization Failed: " + e)));
+      }, (e: any) => reject(new Error("GEE Initialization Failed: " + e)), projectId);
     }, (e: any) => reject(new Error("GEE Authentication Failed: " + e)),
     ['https://www.googleapis.com/auth/earthengine.readonly'],
     () => reject(new Error("Authentication cancelled by user.")), true);
