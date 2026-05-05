@@ -216,8 +216,23 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
 
   const cleanedGeometry = validateAndCleanGeometry(region.geometry);
   const geometry = level === 'custom' ? ee.Geometry(cleanedGeometry) : ee.Feature(region.geometry).geometry();
+  
+  // OPTIMIZATION: Calculate area to adjust scale for large regions
+  const areaSqKm = ee.Number(geometry.area()).divide(1e6);
+  const areaValue: number = await new Promise((res) => areaSqKm.evaluate((v: any) => res(v || 0)));
+  
+  // Dynamically adjust computation scale based on area (Punjab is ~205k km2)
+  // For small areas (< 1k km2), use user resolution.
+  // For medium areas (1k - 50k km2), use max(resolution, 100m).
+  // For large areas (> 50k km2), use max(resolution, 500m).
+  let compScale = resolution;
+  if (areaValue > 50000) compScale = Math.max(resolution, 1000);
+  else if (areaValue > 5000) compScale = Math.max(resolution, 500);
+  else if (areaValue > 1000) compScale = Math.max(resolution, 100);
+
   const climateCol = ee.ImageCollection("ECMWF/ERA5_LAND/MONTHLY_AGGR").filterDate(startDate, endDate).filterBounds(geometry);
   const droughtCol = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(startDate, endDate).filterBounds(geometry);
+  
   const bands = resolution === 10 ? 
     { blue: 'B2', green: 'B3', red: 'B4', nir: 'B8', swir1: 'B11', swir2: 'B12', re1: 'B5', re2: 'B6', re3: 'B7' } :
     { blue: 'SR_B2', green: 'SR_B3', red: 'SR_B4', nir: 'SR_B5', swir1: 'SR_B6', swir2: 'SR_B7', re1: 'SR_B5', re2: 'SR_B5', re3: 'SR_B5', thermal: 'ST_B10' };
@@ -226,7 +241,25 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
     .filterDate(startDate, endDate)
     .filterBounds(geometry);
     
-  const scale = resolution;
+  const scale = compScale;
+
+  // OPTIMIZATION: Establish a regional rural mean temperature once for the whole period if UHI is needed
+  let regionalRuralMean = ee.Number(0);
+  if (analysisCategory === 'All' || analysisCategory === 'Heat') {
+    const dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(startDate, endDate).filterBounds(geometry).select('label').mode();
+    const ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));
+    const meanThermal = imageCol.select(bands.thermal || 'SR_B2').median(); // Fallback if no thermal
+    if (bands.thermal) {
+      const lst = meanThermal.multiply(0.00341802).add(149.0).subtract(273.15);
+      const ruralStats = lst.updateMask(ruralMask).reduceRegion({ 
+        reducer: ee.Reducer.mean(), 
+        geometry, 
+        scale: Math.max(scale, 1000), // Coarse scale for baseline 
+        bestEffort: true 
+      });
+      regionalRuralMean = ee.Number(ruralStats.get('lst', 0));
+    }
+  }
 
   const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
   
@@ -249,10 +282,6 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
       return features?.features?.map((f: any) => f.properties) || [];
     })(),
     (async () => {
-      // OPTIMIZED: Use server-side mapping for all months at once
-      const dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(startDate, endDate).filterBounds(geometry).select('label').mode();
-      const ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));
-
       const statsList = ee.List.sequence(1, 12).map((m: any) => {
         const month = ee.Number(m);
         const monthlyImg = imageCol.filter(ee.Filter.calendarRange(month, month, 'month')).median();
@@ -268,9 +297,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
           })
           .forEach(i => {
             if (i.id === 'uhi' && lstImg) {
-              const ruralStats = lstImg.updateMask(ruralMask).reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 500, bestEffort: true });
-              const ruralMean = ee.Number(ruralStats.get('lst', 0));
-              const uhiImg = lstImg.subtract(ruralMean).rename('uhi');
+              const uhiImg = lstImg.subtract(regionalRuralMean).rename('uhi');
               all = all.addBands(uhiImg);
             } else if (i.id === 'lst' && lstImg) {
               all = all.addBands(lstImg);
@@ -283,9 +310,10 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
         const stats = all.reduceRegion({ 
           reducer: ee.Reducer.mean(), 
           geometry, 
-          scale: scale > 100 ? scale : 100, 
+          scale: scale, 
           bestEffort: true,
-          maxPixels: 1e9
+          maxPixels: 1e9,
+          tileScale: 4 // Increase for more parallelized computation
         });
         
         return ee.Feature(null, stats.set('m', ee.Number(m).format('%02d')));
@@ -315,11 +343,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
       } else if (idx.id === 'uhi') {
          const lst = getIndexExpression('lst', bands, medianImage);
          if (lst) {
-           const dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(startDate, endDate).filterBounds(geometry).select('label').mode();
-           const ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));
-           const ruralStats = lst.updateMask(ruralMask).reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 500, bestEffort: true });
-           const ruralMean = ee.Number(ruralStats.get('lst', 0));
-           img = lst.subtract(ruralMean);
+           img = lst.subtract(regionalRuralMean);
          }
       } else {
          img = getIndexExpression(idx.id, bands, medianImage);
