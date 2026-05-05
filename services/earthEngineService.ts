@@ -34,6 +34,10 @@ export const initializeGEE = async () => {
         return reject(new Error("GEE Initialization Failed: " + originalError + ". Also no Service Account key found for fallback."));
       }
 
+      if (ee.data.setAllowInsecurePrivateKeyAuth) {
+        ee.data.setAllowInsecurePrivateKeyAuth(true);
+      }
+
       ee.data.authenticateViaPrivateKey(saKey, () => {
         const saProjectId = saKey.project_id || "ee-saimsuhail5";
         if (ee.data.setProject) ee.data.setProject(saProjectId);
