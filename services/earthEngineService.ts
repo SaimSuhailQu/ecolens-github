@@ -20,6 +20,8 @@ export const initializeGEE = async () => {
   return new Promise<void>((resolve, reject) => {
     ee.data.authenticateViaOauth(clientId, () => {
       // Pass the project ID as the 5th argument to ee.initialize
+      // And explicitly set it using ee.data.setProject to prevent 400 errors
+      ee.data.setProject(projectId);
       ee.initialize(null, null, () => {
         isInitialized = true;
         resolve();
@@ -171,7 +173,7 @@ const getIndexExpression = (id: string, bands: any, img: any) => {
   }
 };
 
-const getLULCData = async (geometry: any, year: number, signal?: AbortSignal) => {
+const getLULCData = async (geometry: any, year: number, signal?: AbortSignal, optimizedGeometry?: any) => {
   const startDate = `${year}-01-01`;
   const currentYear = new Date().getFullYear();
   const endDate = year === currentYear ? new Date().toISOString().split('T')[0] : `${year}-12-31`;
@@ -192,7 +194,14 @@ const getLULCData = async (geometry: any, year: number, signal?: AbortSignal) =>
       else resolve(obj ? { mapId: obj.mapid, url: obj.urlFormat } : null);
     });
   });
-  const lulcChart = await evaluateWithSignal<any>(lulcImage.reduceRegion({ reducer: ee.Reducer.frequencyHistogram(), geometry, scale: 10, maxPixels: 1e11 }), signal);
+  const lulcChart = await evaluateWithSignal<any>(lulcImage.reduceRegion({ 
+    reducer: ee.Reducer.frequencyHistogram(), 
+    geometry: optimizedGeometry || geometry, 
+    scale: optimizedGeometry ? 100 : 10, 
+    maxPixels: 1e11,
+    bestEffort: true,
+    tileScale: 16
+  }), signal);
   if (!lulcChart || !lulcChart.label) return { visualization: lulcMap, data: [] };
   const totalPixels = Object.values(lulcChart.label as object).reduce((a, b) => a + b, 0);
   const lulcData = Object.entries(lulcChart.label as object).map(([id, count]) => ({ name: lulcClasses[Number(id)]?.name, percentage: (count / totalPixels) * 100, color: lulcClasses[Number(id)]?.color })).filter(d => d.name);
@@ -233,13 +242,27 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
   const areaValue: number = await new Promise((res) => areaSqKm.evaluate((v: any) => res(v || 0)));
   
   // Dynamically adjust computation scale based on area (Punjab is ~205k km2)
-  // For small areas (< 1k km2), use user resolution.
-  // For medium areas (1k - 50k km2), use max(resolution, 100m).
-  // For large areas (> 50k km2), use max(resolution, 500m).
+  // We use more aggressive scaling for very large areas to prevent 5-minute timeouts
   let compScale = resolution;
-  if (areaValue > 50000) compScale = Math.max(resolution, 1000);
-  else if (areaValue > 5000) compScale = Math.max(resolution, 500);
-  else if (areaValue > 1000) compScale = Math.max(resolution, 100);
+  let simplificationError = 0;
+
+  if (areaValue > 100000) {
+    compScale = Math.max(resolution, 2000); // Very large (Punjab-scale)
+    simplificationError = 1000;
+  } else if (areaValue > 50000) {
+    compScale = Math.max(resolution, 1000);
+    simplificationError = 500;
+  } else if (areaValue > 5000) {
+    compScale = Math.max(resolution, 500);
+    simplificationError = 100;
+  } else if (areaValue > 1000) {
+    compScale = Math.max(resolution, 100);
+  }
+
+  // OPTIMIZATION: Simplify complex geometries for large regions to speed up reducers
+  const optimizedGeometry = simplificationError > 0 
+    ? geometry.simplify(simplificationError) 
+    : geometry;
 
   const climateCol = ee.ImageCollection("ECMWF/ERA5_LAND/MONTHLY_AGGR").filterDate(startDate, endDate).filterBounds(geometry);
   const droughtCol = ee.ImageCollection("IDAHO_EPSCOR/TERRACLIMATE").filterDate(startDate, endDate).filterBounds(geometry);
@@ -266,10 +289,10 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
       const lst = meanThermal.multiply(0.00341802).add(149.0).subtract(273.15);
       const ruralStats = lst.updateMask(ruralMask).reduceRegion({ 
         reducer: ee.Reducer.mean(), 
-        geometry, 
+        geometry: optimizedGeometry, 
         scale: Math.max(scale, 500), 
         bestEffort: true,
-        tileScale: 4
+        tileScale: 16
       });
       regionalRuralMean = ee.Number(ruralStats.get('lst', 0));
     }
@@ -280,7 +303,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
   const [climateData, droughtData, indicesData] = await Promise.all([
     (async () => {
       const stats = climateCol.map((img: any) => {
-        const s = img.reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 27830, bestEffort: true });
+        const s = img.reduceRegion({ reducer: ee.Reducer.mean(), geometry: optimizedGeometry, scale: 27830, bestEffort: true, tileScale: 16 });
         return ee.Feature(null, { m: img.date().format('MM'), t: s.get('temperature_2m'), r: s.get('total_precipitation_sum') });
       });
       const features: any = await evaluateWithSignal(stats, signal);
@@ -289,7 +312,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
     (async () => {
       const stats = droughtCol.map((img: any) => {
         const spei = img.expression('pr-pet', {pr:img.select('pr'),pet:img.select('pet')}).rename('spei');
-        const s = img.addBands(spei).reduceRegion({ reducer: ee.Reducer.mean(), geometry, scale: 4638, bestEffort: true });
+        const s = img.addBands(spei).reduceRegion({ reducer: ee.Reducer.mean(), geometry: optimizedGeometry, scale: 4638, bestEffort: true, tileScale: 16 });
         return ee.Feature(null, { m: img.date().format('MM'), p: s.get('pdsi'), s: s.get('spei') });
       });
       const features: any = await evaluateWithSignal(stats, signal);
@@ -323,11 +346,11 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
         
         const stats = all.reduceRegion({ 
           reducer: ee.Reducer.mean(), 
-          geometry, 
+          geometry: optimizedGeometry, 
           scale: scale, 
           bestEffort: true,
           maxPixels: 1e9,
-          tileScale: 4 // Increase for more parallelized computation
+          tileScale: 16
         });
         
         return ee.Feature(null, stats.set('m', ee.Number(m).format('%02d')));
@@ -388,7 +411,7 @@ export const analyzeRegionWithGEE = async (region: RegionGeometry, year: number,
     return viz;
   };
 
-  const [vizData, lulc] = await Promise.all([runVisualizationAnalysis(), getLULCData(geometry, year, signal)]);
+  const [vizData, lulc] = await Promise.all([runVisualizationAnalysis(), getLULCData(geometry, year, signal, optimizedGeometry)]);
   const monthlyData = months.map((m, i) => {
     const d: any = { month: new Date(year, i).toLocaleString('default', { month: 'short' }) };
     const cs = climateData.find((f: any) => f.m === m);
