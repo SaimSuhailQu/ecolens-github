@@ -45,7 +45,8 @@ export const initializeGEE = async () => {
       }, (e: any) => reject(new Error("GEE Initialization Failed: " + e)), null, projectRawId);
     }, (e: any) => reject(new Error("GEE Authentication Failed: " + e)),
     ['https://www.googleapis.com/auth/earthengine.readonly'],
-    () => reject(new Error("Authentication cancelled by user.")));
+    () => reject(new Error("Authentication cancelled by user.")),
+    true);
   });
 };
 
