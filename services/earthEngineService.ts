@@ -22,6 +22,16 @@ export const initializeGEE = async (suppressPopup = false): Promise<User> => {
     throw new Error("Google OAuth Client ID not provided.");
   }
 
+  // Explicitly set restricted scopes before authentication to suppress broad Cloud Platform permissions
+  if (ee.data.setAuthScopes) {
+    ee.data.setAuthScopes(scopes);
+  }
+  
+  // Also suppress default service account scopes if the library tries to use them
+  if (ee.data.setOidcScopes) {
+    ee.data.setOidcScopes(scopes);
+  }
+
   return new Promise<User>((resolve, reject) => {
     ee.data.authenticateViaOauth(clientId, async () => {
       let projectRawId = projectId?.replace('projects/', '') || null;
