@@ -141,6 +141,23 @@ const getTiffUrlWithRetry = (image: any, name: string, region: any, initialScale
   });
 };
 
+const maskL8 = (image: any) => {
+  const qa = image.select('QA_PIXEL');
+  const mask = qa.bitwiseAnd(1 << 3).eq(0) // Cloud
+    .and(qa.bitwiseAnd(1 << 4).eq(0)) // Cloud Shadow
+    .and(qa.bitwiseAnd(1 << 5).eq(0)); // Snow
+  return image.updateMask(mask);
+};
+
+const maskS2 = (image: any) => {
+  const qa = image.select('QA60');
+  const cloudBitMask = 1 << 10;
+  const cirrusBitMask = 1 << 11;
+  const mask = qa.bitwiseAnd(cloudBitMask).eq(0)
+    .and(qa.bitwiseAnd(cirrusBitMask).eq(0));
+  return image.updateMask(mask);
+};
+
 const getScaledImage = (img: any, resolution: number) => {
   if (resolution === 10) {
     // Sentinel-2 optical bands
@@ -161,6 +178,42 @@ const getOptimizedGeometry = (geom: any, areaValue: number) => {
   else if (areaValue > 5000) simplificationError = 100;
   
   return simplificationError > 0 ? geom.simplify(simplificationError) : geom;
+};
+
+const getGEEScriptSnippet = (id: string, resolution: number) => {
+  const isS2 = resolution === 10;
+  const b = isS2 
+    ? { nir: 'B8', red: 'B4', blue: 'B2', swir1: 'B11', swir2: 'B12', green: 'B3', rededge1: 'B5', thermal: 'B11' }
+    : { nir: 'SR_B5', red: 'SR_B4', blue: 'SR_B2', swir1: 'SR_B6', swir2: 'SR_B7', green: 'SR_B3', thermal: 'ST_B10' };
+
+  const scripts: Record<string, string> = {
+    ndvi: `image.normalizedDifference(['${b.nir}', '${b.red}'])`,
+    evi: `image.expression('2.5 * ((NIR - RED) / (NIR + 6 * RED - 7.5 * BLUE + 1))', { 'NIR': image.select('${b.nir}'), 'RED': image.select('${b.red}'), 'BLUE': image.select('${b.blue}') })`,
+    savi: `image.expression('((NIR - RED) / (NIR + RED + 0.5)) * 1.5', { 'NIR': image.select('${b.nir}'), 'RED': image.select('${b.red}') })`,
+    msavi: `image.expression('(2 * NIR + 1 - sqrt(pow((2 * NIR + 1), 2) - 8 * (NIR - RED))) / 2', { 'NIR': image.select('${b.nir}'), 'RED': image.select('${b.red}') })`,
+    ndwi: `image.normalizedDifference(['${b.green}', '${b.nir}'])`,
+    mndwi: `image.normalizedDifference(['${b.green}', '${b.swir1}'])`,
+    ndbi: `image.normalizedDifference(['${b.swir1}', '${b.nir}'])`,
+    nbr: `image.normalizedDifference(['${b.nir}', '${b.swir2}'])`,
+    lst: `image.select('${b.thermal}').multiply(0.00341802).add(149.0).subtract(273.15)`,
+    uhi: `image.select('${b.thermal}').multiply(0.00341802).add(149.0).subtract(273.15)` // UHI needs baseline subtraction handled in script
+  };
+
+  const script = scripts[id.toLowerCase()] || `image.normalizedDifference(['${b.nir}', '${b.red}'])`;
+  
+  if (id.toLowerCase() === 'uhi') {
+    return `// UHI Calculation
+var lst = ${script};
+var ruralMean = lst.updateMask(ruralMask).reduceRegion({
+  reducer: ee.Reducer.mean(),
+  geometry: geometry,
+  scale: 500,
+  bestEffort: true
+}).get('thermal', 0);
+var result = lst.subtract(ee.Number(ruralMean)).rename('UHI');`;
+  }
+  
+  return `var result = ${script}.rename('${id.toUpperCase()}');`;
 };
 
 const getIndexExpression = (id: string, bands: any, img: any) => {
@@ -336,30 +389,15 @@ export const analyzeRegionWithGEE = async (
   const imageCol = ee.ImageCollection(resolution === 10 ? 'COPERNICUS/S2_SR' : 'LANDSAT/LC08/C02/T1_L2')
     .filterDate(startDate, endDate)
     .filterBounds(optimizedGeometry);
-  const medianImage = getScaledImage(imageCol.median().clip(optimizedGeometry), resolution);
+  
+  const maskedCol = resolution === 10 ? imageCol.map(maskS2) : imageCol.map(maskL8);
+  const medianImage = getScaledImage(maskedCol.median().clip(optimizedGeometry), resolution);
     
   const scale = compScale;
 
-  // OPTIMIZATION: Establish a regional rural mean temperature once for the whole period if UHI is needed
-  let regionalRuralMean = ee.Number(0);
-  if (analysisCategory === 'All' || analysisCategory === 'Heat') {
-    const dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(startDate, endDate).filterBounds(geometry).select('label').mode();
-    const ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));
-    const thermalBand = bands.thermal || (resolution === 10 ? 'B2' : 'SR_B2');
-    const meanThermal = imageCol.select(thermalBand).median();
-    
-    if (bands.thermal) {
-      const lst = meanThermal.multiply(0.00341802).add(149.0).subtract(273.15).rename('lst');
-      const ruralStats = lst.updateMask(ruralMask).reduceRegion({ 
-        reducer: ee.Reducer.mean(), 
-        geometry: optimizedGeometry, 
-        scale: Math.max(scale, 500), 
-        bestEffort: true,
-        tileScale: 16
-      });
-      regionalRuralMean = ee.Number(ruralStats.get('lst', 0));
-    }
-  }
+  // Rural mask for UHI (Dynamic World classes: water, trees, grass, crops, shrub)
+  const dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterDate(startDate, endDate).filterBounds(geometry).select('label').mode();
+  const ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));
 
   const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
   
@@ -376,8 +414,8 @@ export const analyzeRegionWithGEE = async (
     (async () => {
       const stats = droughtCol.map((img: any) => {
         const spei = img.expression('pr-pet', {pr:img.select('pr'),pet:img.select('pet')}).rename('spei');
-        const s = img.addBands(spei).reduceRegion({ reducer: ee.Reducer.mean(), geometry: optimizedGeometry, scale: 4638, bestEffort: true, tileScale: 16 });
-        return ee.Feature(null, { m: img.date().format('MM'), p: s.get('pdsi'), s: s.get('spei') });
+        const s = img.addBands(spei).reduceRegion({ reducer: ee.Reducer.mean(), geometry: optimizedGeometry, scale: 5000, bestEffort: true, tileScale: 16 });
+        return ee.Feature(null, { m: img.date().format('MM'), p: ee.Number(s.get('pdsi')).multiply(0.01), s: s.get('spei') });
       });
       const features: any = await evaluateWithSignal(stats, signal);
       if (onProgress) onProgress(45);
@@ -386,11 +424,22 @@ export const analyzeRegionWithGEE = async (
     (async () => {
       const statsList = ee.List.sequence(1, 12).map((m: any) => {
         const month = ee.Number(m);
-        const rawMonthlyImg = imageCol.filter(ee.Filter.calendarRange(month, month, 'month')).median().clip(optimizedGeometry);
+        const rawMonthlyImg = maskedCol.filter(ee.Filter.calendarRange(month, month, 'month')).median().clip(optimizedGeometry);
         const monthlyImg = getScaledImage(rawMonthlyImg, resolution);
         
         let all = ee.Image([]);
         const lstImg = getIndexExpression('lst', bands, monthlyImg);
+        
+        // Calculate monthly rural mean for UHI baseline
+        const ruralStats = (lstImg && (analysisCategory === 'All' || analysisCategory === 'Heat')) 
+          ? lstImg.updateMask(ruralMask).reduceRegion({ 
+              reducer: ee.Reducer.mean(), 
+              geometry: optimizedGeometry, 
+              scale: Math.max(scale, 500), 
+              bestEffort: true 
+            })
+          : null;
+        const monthlyRuralMean = ruralStats ? ee.Number(ruralStats.get('lst', 0)) : ee.Number(0);
 
         AVAILABLE_INDICES
           .filter(i => {
@@ -400,7 +449,7 @@ export const analyzeRegionWithGEE = async (
           })
           .forEach(i => {
             if (i.id === 'uhi' && lstImg) {
-              const uhiImg = lstImg.subtract(regionalRuralMean).rename('uhi');
+              const uhiImg = lstImg.subtract(monthlyRuralMean).rename('uhi');
               all = all.addBands(uhiImg);
             } else if (i.id === 'lst' && lstImg) {
               all = all.addBands(lstImg);
@@ -446,7 +495,14 @@ export const analyzeRegionWithGEE = async (
       } else if (idx.id === 'uhi') {
          const lst = getIndexExpression('lst', bands, medianImage);
          if (lst) {
-           img = lst.subtract(regionalRuralMean);
+           const ruralStats = lst.updateMask(ruralMask).reduceRegion({ 
+             reducer: ee.Reducer.mean(), 
+             geometry: optimizedGeometry, 
+             scale: Math.max(scale, 500), 
+             bestEffort: true 
+           });
+           const meanVal = ee.Number(ruralStats.get('lst', 0));
+           img = lst.subtract(meanVal);
          }
       } else {
          img = getIndexExpression(idx.id, bands, medianImage);
@@ -494,30 +550,32 @@ export const analyzeRegionWithGEE = async (
 
   const metadata = { resolution, startDate, endDate, bands, imageColId: resolution === 10 ? 'COPERNICUS/S2_SR' : 'LANDSAT/LC08/C02/T1_L2' };
 
-  const geeScript = `// EcoLens WebGIS - Analysis Script
-var geometry = ${JSON.stringify(geometry)};
-var startDate = '${startDate}';
-var endDate = '${endDate}';
-var s2 = ee.ImageCollection('${metadata.imageColId}')
+  const geeScript = `// Google Earth Engine Script for ${region.name}
+// Generated by EcoLens WebGIS
+var geometry = ${JSON.stringify(region.geometry)};
+var image = ee.ImageCollection("${resolution === 10 ? 'COPERNICUS/S2_SR' : 'LANDSAT/LC08/C02/T1_L2'}")
+  .filterDate('${startDate}', '${endDate}')
   .filterBounds(geometry)
-  .filterDate(startDate, endDate)
   .median()
   .clip(geometry);
-var bands = ${JSON.stringify(bands)};
-var ndvi = s2.expression('(NIR - RED) / (NIR + RED)', {
-  'NIR': s2.select(bands.nir),
-  'RED': s2.select(bands.red)
-}).rename('NDVI');
+
+${selectedIndexId === 'uhi' ? `// Rural mask for UHI baseline
+var dw = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
+  .filterDate('${startDate}', '${endDate}')
+  .filterBounds(geometry)
+  .select('label').mode();
+var ruralMask = dw.eq(1).or(dw.eq(2)).or(dw.eq(4)).or(dw.eq(5));\n` : ''}
+${getGEEScriptSnippet(selectedIndexId, resolution)}
+
 Map.centerObject(geometry, 12);
-Map.addLayer(s2, {bands: [bands.red, bands.green, bands.blue], min: 0, max: 3000}, 'Natural Color');
-Map.addLayer(ndvi, {min: -1, max: 1, palette: ['red', 'white', 'green']}, 'NDVI');
-var stats = ndvi.reduceRegion({
-  reducer: ee.Reducer.mean(),
-  geometry: geometry,
-  scale: ${resolution},
-  maxPixels: 1e9
-});
-print('Mean NDVI:', stats.get('NDVI'));`;
+Map.addLayer(result, {
+  min: ${selectedIndexId === 'uhi' ? 0 : selectedIndexId === 'lst' ? 10 : -1},
+  max: ${selectedIndexId === 'uhi' ? 10 : selectedIndexId === 'lst' ? 50 : 1},
+  palette: ${JSON.stringify(
+    selectedIndexId === 'lst' || selectedIndexId === 'uhi' ? ['#0d0887', '#5c01a6', '#9c179e', '#cc4678', '#ed7953', '#fdb32f', '#f0f921'] : 
+    ['#a50026', '#d73027', '#f46d43', '#fdae61', '#fee08b', '#ffffbf', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837']
+  )}
+}, '${selectedIndexId.toUpperCase()}');`;
 
   return { 
     coordinates: region.center, 
