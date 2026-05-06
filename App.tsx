@@ -655,27 +655,29 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-[100] w-[85%] sm:w-[400px] md:w-[380px] lg:w-[450px] xl:w-[480px] flex-shrink-0 h-full bg-slate-900 border-r border-slate-800 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-[100] w-[85%] sm:w-[400px] md:w-[420px] lg:w-[450px] xl:w-[480px] flex-shrink-0 h-full mesh-gradient border-r border-white/5 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <header className="flex-shrink-0">
-          <div className="p-5 border-b border-slate-800">
+          <div className="p-6 border-b border-white/5 bg-slate-950/20">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 mb-1 group cursor-pointer">
-                <img src="logo.png" alt="Logo" className="w-8 h-8 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300" />
-                <h1 className="text-xl font-bold text-white tracking-tight">EcoLens <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">WebGIS</span></h1>
+              <div className="flex items-center gap-4 mb-1 group cursor-pointer">
+                <div className="p-2 bg-emerald-500/10 rounded-xl group-hover:bg-emerald-500/20 transition-all duration-300 glow-emerald">
+                  <img src="logo.png" alt="Logo" className="w-8 h-8 rounded-lg group-hover:scale-110 transition-transform duration-500" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-black text-white tracking-tighter">EcoLens <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">WebGIS</span></h1>
+                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Precision Analytics
+                  </div>
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-white" title="Close Sidebar">
-                  <ChevronLeft size={18} />
+                <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-xl bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all" title="Close Sidebar">
+                  <ChevronLeft size={20} />
                 </button>
-                <button onClick={() => setShowSettings(true)} className={`p-1.5 rounded-full transition-colors ${isGeeReady ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400 animate-pulse'}`} title="Configure Earth Engine">
-                  <Settings size={16} />
+                <button onClick={() => setShowSettings(true)} className={`p-2 rounded-xl transition-all shadow-lg ${isGeeReady ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse'}`} title="Configure Earth Engine">
+                  <Settings size={18} />
                 </button>
               </div>
-            </div>
-            <div className="flex items-center gap-2 text-xs mt-1">
-              <span className={`flex items-center gap-1.5 ${isGeeReady ? 'text-emerald-400' : 'text-slate-500'}`}>
-                <Globe size={10} /> {isGeeReady ? 'Connected to Earth Engine' : 'Waiting for authorization...'}
-              </span>
             </div>
           </div>
           <div className="px-5 py-4 border-b border-slate-800 space-y-3">
@@ -718,10 +720,14 @@ const App: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div className="col-span-1 md:col-span-3 space-y-6">
               {/* Location & Time Section */}
-              <div className="space-y-6 bg-slate-900/40 p-8 rounded-3xl border border-slate-700/50 backdrop-blur-md shadow-2xl transition-all hover:border-slate-600/50">
-                <h3 className="text-base font-bold text-emerald-400 flex items-center gap-3 border-b border-slate-800/50 pb-3 mb-6">
-                  <Globe size={20} /> Spatiotemporal Parameters
-                </h3>
+              <div className="space-y-6 glass-card p-8 rounded-[2rem] border-white/5 shadow-2xl transition-all hover:border-white/10 group animate-fade-in-up">
+                <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-2">
+                  <h3 className="text-lg font-black text-emerald-400 flex items-center gap-3 tracking-tight">
+                    <Globe size={22} className="group-hover:rotate-12 transition-transform duration-500" /> 
+                    Spatiotemporal Parameters
+                  </h3>
+                  <div className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-full border border-emerald-500/20 uppercase tracking-widest">Global Ops</div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label htmlFor="admin-level" className="text-sm text-slate-400 font-semibold flex items-center gap-2 mb-2"><Globe size={16} className="text-cyan-400" /> Administrative Depth</label>
@@ -753,10 +759,14 @@ const App: React.FC = () => {
               </div>
 
               {/* Analysis Engine & Controls Section */}
-              <div className="space-y-6 bg-slate-900/40 p-8 rounded-3xl border border-slate-700/50 backdrop-blur-md shadow-2xl transition-all hover:border-slate-600/50">
-                <h3 className="text-base font-bold text-cyan-400 flex items-center gap-3 border-b border-slate-800/50 pb-3 mb-6">
-                  <Activity size={20} /> Analysis Engine
-                </h3>
+              <div className="space-y-6 glass-card p-8 rounded-[2rem] border-white/5 shadow-2xl transition-all hover:border-white/10 group animate-fade-in-up [animation-delay:100ms]">
+                <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-2">
+                  <h3 className="text-lg font-black text-cyan-400 flex items-center gap-3 tracking-tight">
+                    <Activity size={22} className="group-hover:scale-110 transition-transform duration-500" /> 
+                    Analysis Engine
+                  </h3>
+                  <div className="px-3 py-1 bg-cyan-500/10 text-cyan-400 text-[10px] font-bold rounded-full border border-cyan-500/20 uppercase tracking-widest">v1.2.0-PRO</div>
+                </div>
                 
                 <div className="grid grid-cols-1 gap-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -789,16 +799,16 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-6 pt-4 border-t border-slate-800/50">
+                  <div className="space-y-6 pt-6 border-t border-white/5">
                     <div className="grid grid-cols-2 gap-4">
                       <button
                         onClick={() => setDrawingMode(!drawingMode)}
-                        className={`flex items-center justify-center gap-3 py-4 text-sm font-bold rounded-xl border transition-all ${drawingMode ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600'}`}
+                        className={`flex items-center justify-center gap-3 py-4 text-sm font-bold rounded-2xl border transition-all duration-300 shadow-lg active:scale-95 ${drawingMode ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 glow-emerald' : 'bg-slate-800/50 border-white/5 text-slate-300 hover:bg-slate-700/50 hover:border-white/10'}`}
                       >
-                        <Square size={18} /> {drawingMode ? 'Cancel Drawing' : 'Draw Polygon'}
+                        <Square size={20} /> {drawingMode ? 'Cancel' : 'Draw Area'}
                       </button>
-                      <label htmlFor="file-import" className="flex items-center justify-center gap-3 py-4 text-sm font-bold rounded-xl border bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600 cursor-pointer transition-all">
-                        <Download size={18} className="rotate-180" /> Import Geometry
+                      <label htmlFor="file-import" className="flex items-center justify-center gap-3 py-4 text-sm font-bold rounded-2xl border bg-slate-800/50 border-white/5 text-slate-300 hover:bg-slate-700/50 hover:border-white/10 cursor-pointer transition-all duration-300 shadow-lg active:scale-95">
+                        <Download size={20} className="rotate-180" /> Import
                         <input id="file-import" name="file-import" type="file" onChange={handleFileUpload} accept=".kml,.kmz,.zip,.json,.geojson" className="hidden" />
                       </label>
                     </div>
@@ -806,19 +816,19 @@ const App: React.FC = () => {
                     {status === AnalysisStatus.LOADING ? (
                       <button
                         onClick={handleStopAnalysis}
-                        className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold py-4 rounded-2xl shadow-[0_0_25px_rgba(225,29,72,0.25)] transition-all flex items-center justify-center gap-3 text-base group"
+                        className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black py-5 rounded-[1.5rem] shadow-[0_10px_40px_rgba(225,29,72,0.3)] transition-all flex items-center justify-center gap-3 text-lg group active:scale-95"
                       >
-                        <X size={20} className="group-hover:rotate-90 transition-transform" />
-                        Stop Current Analysis
+                        <X size={24} className="group-hover:rotate-90 transition-transform duration-500" />
+                        Abort Task
                       </button>
                     ) : (
                       <button
                         onClick={handleRunAnalysis}
                         disabled={!isGeeReady || (!pendingLocation && !customGeometry)}
-                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 disabled:border-slate-700 text-white font-bold py-4 rounded-2xl shadow-[0_0_25px_rgba(37,99,235,0.25)] transition-all flex items-center justify-center gap-3 text-base group"
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 disabled:border-white/5 text-white font-black py-5 rounded-[1.5rem] shadow-[0_10px_40px_rgba(37,99,235,0.3)] transition-all flex items-center justify-center gap-3 text-lg group active:scale-95 disabled:scale-100 glow-emerald"
                       >
-                        <Activity size={20} className="group-hover:scale-110 transition-transform" />
-                        Execute Environmental Analysis
+                        <Activity size={24} className="group-hover:scale-125 transition-transform duration-500" />
+                        Execute Analysis
                       </button>
                     )}
                   </div>

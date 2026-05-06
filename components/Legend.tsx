@@ -14,12 +14,12 @@ export const Legend: React.FC<LegendProps> = ({ visParams, title }) => {
   const gradient = `linear-gradient(to right, ${palette.join(',')})`;
 
   return (
-    <div className="bg-slate-900/90 backdrop-blur-md p-3 rounded-xl shadow-2xl text-white w-40 border border-slate-700/50">
-      <h4 className="text-[10px] md:text-xs font-bold mb-1.5 uppercase tracking-wider text-slate-400">{title}</h4>
-      <div className="w-full h-3 rounded-full mb-1" style={{ background: gradient }}></div>
-      <div className="flex justify-between text-[10px] font-mono text-slate-300">
-        <span>{min}</span>
-        <span>{max}</span>
+    <div className="glass-card p-4 rounded-2xl w-48 animate-fade-in-up">
+      <h4 className="text-[10px] font-black mb-3 uppercase tracking-[0.2em] text-emerald-400 border-b border-white/5 pb-2">{title}</h4>
+      <div className="w-full h-4 rounded-lg mb-2 shadow-inner" style={{ background: gradient }}></div>
+      <div className="flex justify-between text-[10px] font-black text-slate-400 font-mono">
+        <span className="bg-slate-950/50 px-2 py-0.5 rounded border border-white/5">{min}</span>
+        <span className="bg-slate-950/50 px-2 py-0.5 rounded border border-white/5">{max}</span>
       </div>
     </div>
   );
