@@ -10,6 +10,9 @@ export const initializeGEE = async () => {
     throw new Error("Earth Engine API script not loaded");
   }
   ee.data.clearAuthToken();
+  if (ee.data.setAuthScopes) {
+    ee.data.setAuthScopes(['https://www.googleapis.com/auth/earthengine.readonly']);
+  }
   const clientId = import.meta.env.VITE_GEE_OAUTH_CLIENT_ID;
   const projectId = import.meta.env.VITE_GEE_PROJECT_ID; // Do not hardcode a default project
   console.log("DEBUG: The environment variable VITE_GEE_PROJECT_ID is currently set to:", projectId);
