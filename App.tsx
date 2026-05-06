@@ -183,6 +183,10 @@ const App: React.FC = () => {
 
   const handleLocationSelect = (coords: Coordinates) => {
     setPendingLocation(coords);
+    setCustomGeometry(null);
+    setAnalysis(null);
+    setActiveOverlay(null);
+    setStatus(AnalysisStatus.IDLE);
     if (analysisLevel !== 'custom') {
       setSelectedRegion(null);
     }
@@ -402,16 +406,25 @@ const App: React.FC = () => {
           const geojson = toGeoJSON.kml(kml);
           setCustomGeometry(geojson);
           setAnalysisLevel('custom');
+          setAnalysis(null);
+          setActiveOverlay(null);
+          setStatus(AnalysisStatus.IDLE);
         }
       } else if (extension === 'zip') {
         const buffer = await file.arrayBuffer();
         const geojson = await shp(buffer);
         setCustomGeometry(geojson);
         setAnalysisLevel('custom');
+        setAnalysis(null);
+        setActiveOverlay(null);
+        setStatus(AnalysisStatus.IDLE);
       } else if (extension === 'json' || extension === 'geojson') {
         const text = await file.text();
         setCustomGeometry(JSON.parse(text));
         setAnalysisLevel('custom');
+        setAnalysis(null);
+        setActiveOverlay(null);
+        setStatus(AnalysisStatus.IDLE);
       } else {
         alert("Unsupported file format. Please use KML, KMZ, Zipped Shapefile, or GeoJSON.");
       }
@@ -427,6 +440,9 @@ const App: React.FC = () => {
     setSelectedRegion(null);
     setPendingLocation(null);
     setDrawingMode(false);
+    setAnalysis(null);
+    setActiveOverlay(null);
+    setStatus(AnalysisStatus.IDLE);
   };
 
   const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
