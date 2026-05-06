@@ -910,52 +910,47 @@ const App: React.FC = () => {
               <button onClick={() => setShowSettings(true)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-sm transition-colors border border-slate-700">Login</button>
             </div>
           ) : status === AnalysisStatus.IDLE && (
-            <div className="h-full flex flex-col items-center justify-center text-center opacity-60 py-10">
-              <MapIcon className="w-16 h-16 text-slate-700 mb-4 mx-auto" />
-              <h3 className="text-lg font-medium text-slate-300">Prepare Analysis</h3>
-              <p className="text-sm text-slate-500 max-w-xs mt-2 mx-auto">
+            <div className="h-full flex flex-col items-center justify-center text-center p-12 glass-card rounded-[3rem] border-dashed border-white/10 animate-fade-in-up">
+              <div className="w-24 h-24 bg-emerald-500/10 rounded-3xl flex items-center justify-center mb-8 glow-emerald">
+                <Leaf size={48} className="text-emerald-400" />
+              </div>
+              <h3 className="text-3xl font-black text-white mb-4 tracking-tighter">Ready for Analysis</h3>
+              <p className="text-base text-slate-400 max-w-sm mx-auto leading-relaxed">
                 {pendingLocation || customGeometry
-                  ? "Location selected. Click 'Run Environmental Analysis' to start."
-                  : `Select a location on the map, draw a polygon, or upload a spatial file.`}
+                  ? "Region defined. Click 'Execute Analysis' to synthesize environmental data."
+                  : "Select an administrative region or draw a custom area to begin."}
               </p>
+              <div className="mt-10 flex gap-3 text-[10px] uppercase tracking-widest font-bold text-slate-500">
+                <span className="px-3 py-1 bg-slate-800/50 rounded-lg border border-white/5">Multi-Sensor</span>
+                <span className="px-3 py-1 bg-slate-800/50 rounded-lg border border-white/5">Real-time GEE</span>
+              </div>
             </div>
           )}
 
           {status === AnalysisStatus.LOADING && (
-            <div className="h-full flex flex-col items-center justify-center text-center py-10">
-              <div className="relative mb-6">
-                <Loader2 className="w-16 h-16 text-emerald-500 animate-spin mx-auto opacity-20" />
+            <div className="h-full flex flex-col items-center justify-center text-center p-12 glass-card rounded-[3rem] animate-pulse">
+              <div className="relative mb-10">
+                <div className="w-32 h-32 bg-emerald-500/5 rounded-full flex items-center justify-center glow-emerald">
+                   <Loader2 className="w-20 h-20 text-emerald-500 animate-spin opacity-40" />
+                </div>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-sm font-bold text-emerald-400">{progress}%</span>
+                  <span className="text-xl font-black text-emerald-400 tracking-tighter">{progress}%</span>
                 </div>
               </div>
               
-              <div className="w-64 h-1.5 bg-slate-800 rounded-full mb-6 overflow-hidden border border-slate-700/50">
+              <div className="w-full max-w-xs h-2 bg-slate-800/50 rounded-full mb-8 overflow-hidden border border-white/5">
                 <div 
-                  className="h-full bg-gradient-to-r from-emerald-600 to-teal-400 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                  className="h-full bg-gradient-to-r from-emerald-600 via-cyan-400 to-blue-500 transition-all duration-500 ease-out shadow-[0_0_20px_rgba(16,185,129,0.5)]"
                   style={{ width: `${progress}%` }}
                 />
               </div>
 
-              <h3 className="text-base font-medium text-slate-300">
-                {analysis ? 'Querying Earth Engine...' : `Identifying ${analysisLevel === '0' ? 'Country' : analysisLevel === '1' ? 'Province' : analysisLevel === '2' ? 'District' : analysisLevel === '3' ? 'Tehsil' : 'Custom Region'}...`}
+              <h3 className="text-2xl font-black text-white mb-3 tracking-tight">
+                {analysis ? 'Synthesizing Data...' : 'Calibrating Sensors...'}
               </h3>
-              <p className="text-xs text-slate-500 mt-2 mx-auto">
-                {progress < 100 ? 'Processing environmental metrics...' : 'Finalizing analysis results...'}
+              <p className="text-sm text-slate-400 max-w-xs mx-auto font-medium">
+                Processing multi-temporal environmental metrics via Google Earth Engine.
               </p>
-              
-              {progress > 0 && (
-                <p className="text-[10px] text-slate-600 mt-4 italic">
-                  Estimated time remaining: {Math.max(0, Math.ceil((100 - progress) / 3))}s
-                </p>
-              )}
-
-              <button 
-                onClick={handleStopAnalysis}
-                className="mt-8 text-xs bg-slate-800 hover:bg-slate-700 text-red-400 px-4 py-2 rounded-lg border border-slate-700 flex items-center gap-2 transition-colors group"
-              >
-                <X size={14} className="group-hover:rotate-90 transition-transform" /> Cancel Process
-              </button>
             </div>
           )}
 
