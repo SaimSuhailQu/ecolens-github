@@ -22,17 +22,21 @@ export const initializeGEE = async (suppressPopup = false): Promise<User> => {
     throw new Error("Google OAuth Client ID not provided.");
   }
 
-  // Explicitly set restricted scopes before authentication to suppress broad Cloud Platform permissions
+  if (!suppressPopup) {
+    // If we're not auto-logging in, clear the old token to force a fresh permission check
+    ee.data.clearAuthToken();
+  }
+
+  // Aggressively set restricted scopes before authentication
   if (ee.data.setAuthScopes) {
     ee.data.setAuthScopes(scopes);
   }
-  
-  // Also suppress default service account scopes if the library tries to use them
   if (ee.data.setOidcScopes) {
     ee.data.setOidcScopes(scopes);
   }
 
   return new Promise<User>((resolve, reject) => {
+    // Pass the scopes both as an argument and via the setAuthScopes global to ensure they stick
     ee.data.authenticateViaOauth(clientId, async () => {
       let projectRawId = projectId?.replace('projects/', '') || null;
       
@@ -60,9 +64,9 @@ export const initializeGEE = async (suppressPopup = false): Promise<User> => {
         }
       }, (e: any) => reject(new Error("GEE Initialization Failed: " + e)), null, projectRawId);
     }, (e: any) => reject(new Error("GEE Authentication Failed: " + e)),
-    scopes,
-    () => reject(new Error("Authentication cancelled.")),
-    suppressPopup);
+    scopes, // 4th arg
+    () => reject(new Error("Authentication cancelled.")), // 5th arg
+    suppressPopup); // 6th arg
   });
 };
 
