@@ -1,53 +1,67 @@
-import { Coordinates, RegionAnalysis, AnalysisLevel, AVAILABLE_INDICES, RegionGeometry } from "../types";
+import { Coordinates, RegionAnalysis, AnalysisLevel, AVAILABLE_INDICES, RegionGeometry, User } from "../types";
 
 // Declare the global ee object loaded via script tag
 declare var ee: any;
 
 let isInitialized = false;
 
-export const initializeGEE = async () => {
+export const initializeGEE = async (suppressPopup = false): Promise<User> => {
   if (typeof ee === 'undefined') {
     throw new Error("Earth Engine API script not loaded");
   }
-  ee.data.clearAuthToken();
-  if (ee.data.setAuthScopes) {
-    ee.data.setAuthScopes(['https://www.googleapis.com/auth/earthengine.readonly']);
-  }
+
   const clientId = import.meta.env.VITE_GEE_OAUTH_CLIENT_ID;
-  const projectId = import.meta.env.VITE_GEE_PROJECT_ID; // Do not hardcode a default project
-  console.log("DEBUG: The environment variable VITE_GEE_PROJECT_ID is currently set to:", projectId);
+  const projectId = import.meta.env.VITE_GEE_PROJECT_ID;
+  const scopes = [
+    'https://www.googleapis.com/auth/earthengine.readonly',
+    'https://www.googleapis.com/auth/userinfo.profile',
+    'email'
+  ];
 
   if (!clientId) {
-    throw new Error("Google OAuth Client ID not provided in environment variable VITE_GEE_OAUTH_CLIENT_ID.");
+    throw new Error("Google OAuth Client ID not provided.");
   }
 
-  return new Promise<void>((resolve, reject) => {
-    ee.data.authenticateViaOauth(clientId, () => {
-      let projectRawId = null;
-
-      // Only set a specific project if the developer explicitly provided one in .env
-      if (projectId && projectId.trim() !== '') {
-        projectRawId = projectId.replace('projects/', '');
-        if (ee.data.setProject) {
-          ee.data.setProject(projectRawId);
-        }
-      } else {
-        // Explicitly clear any cached project from previous sessions
-        if (ee.data.setProject) {
-          ee.data.setProject(null);
-        }
-      }
+  return new Promise<User>((resolve, reject) => {
+    ee.data.authenticateViaOauth(clientId, async () => {
+      let projectRawId = projectId?.replace('projects/', '') || null;
       
-      // Initialize. If projectRawId is null, GEE will automatically use the logged-in user's default project!
-      ee.initialize(null, null, () => {
+      if (projectRawId && ee.data.setProject) {
+        ee.data.setProject(projectRawId);
+      }
+
+      ee.initialize(null, null, async () => {
         isInitialized = true;
-        resolve();
+        
+        try {
+          const token = ee.data.getAuthToken();
+          const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: token }
+          });
+          const profile = await response.json();
+          resolve({
+            name: profile.name || 'Earth Engine User',
+            email: profile.email || '',
+            picture: profile.picture || ''
+          });
+        } catch (err) {
+          console.warn("Failed to fetch user profile:", err);
+          resolve({ name: 'Earth Engine User', email: '', picture: '' });
+        }
       }, (e: any) => reject(new Error("GEE Initialization Failed: " + e)), null, projectRawId);
     }, (e: any) => reject(new Error("GEE Authentication Failed: " + e)),
-    ['https://www.googleapis.com/auth/earthengine.readonly'],
-    () => reject(new Error("Authentication cancelled by user.")),
-    true);
+    scopes,
+    () => reject(new Error("Authentication cancelled.")),
+    suppressPopup);
   });
+};
+
+export const logoutGEE = () => {
+  if (typeof ee !== 'undefined') {
+    ee.data.clearAuthToken();
+    isInitialized = false;
+    localStorage.removeItem('ecolens_logged_in');
+  }
 };
 
 

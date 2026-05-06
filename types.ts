@@ -103,3 +103,9 @@ export enum AnalysisStatus {
   SUCCESS = 'SUCCESS',
   ERROR = 'ERROR'
 }
+
+export interface User {
+  name: string;
+  email: string;
+  picture: string;
+}

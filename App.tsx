@@ -4,8 +4,8 @@ import { DynamicIndexChart, ClimateChart } from './components/Charts';
 import { LandCoverDonut } from './components/LandCoverDonut';
 import { LULCChart } from './components/LULCChart';
 import { CodeBlock } from './components/CodeBlock';
-import { analyzeRegionWithGEE, initializeGEE, getRegionFromCoords, getExportUrl, getExportZipUrls, getCountries, getProvinces, getDistricts, getTehsils, getLazyMapId } from './services/earthEngineService';
-import { Coordinates, RegionAnalysis, AnalysisStatus, AnalysisLevel, AVAILABLE_INDICES, RegionGeometry } from './types';
+import { analyzeRegionWithGEE, initializeGEE, logoutGEE, getRegionFromCoords, getExportUrl, getExportZipUrls, getCountries, getProvinces, getDistricts, getTehsils, getLazyMapId } from './services/earthEngineService';
+import { Coordinates, RegionAnalysis, AnalysisStatus, AnalysisLevel, AVAILABLE_INDICES, RegionGeometry, User } from './types';
 import toGeoJSON from 'togeojson';
 import shp from 'shpjs';
 import JSZip from 'jszip';
@@ -56,6 +56,7 @@ const App: React.FC = () => {
   // GEE State
   const [isGeeReady, setIsGeeReady] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(true);
+  const [user, setUser] = useState<User | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(window.innerWidth >= 1024);
 
@@ -508,19 +509,46 @@ const App: React.FC = () => {
     }
   };
 
+  React.useEffect(() => {
+    const tryAutoLogin = async () => {
+      if (localStorage.getItem('ecolens_logged_in') === 'true') {
+        try {
+          const userInfo = await initializeGEE(true); // Suppress popup
+          setUser(userInfo);
+          setIsGeeReady(true);
+          setShowSettings(false);
+        } catch (e) {
+          console.warn("Auto-login failed, requiring manual intervention.");
+          localStorage.removeItem('ecolens_logged_in');
+        }
+      }
+    };
+    tryAutoLogin();
+  }, []);
+
   const handleLogin = async () => {
     try {
-      await initializeGEE();
+      setErrorMessage(null);
+      const userInfo = await initializeGEE(false); // Show popup
+      setUser(userInfo);
       setIsGeeReady(true);
       setShowSettings(false);
-    } catch (e: any) {
-      if (e.message && (e.message.includes('permission') || e.message.includes('403'))) {
-        alert("Permission Denied (403): Your Google account does not have permission to use the Earth Engine project 'ee-saimsuhail5'.\n\nFix 1: Ask the administrator to add your email as a 'Service Usage Consumer' in Google Cloud IAM.\n\nFix 2: If you want to use your OWN Earth Engine account, remove 'VITE_GEE_PROJECT_ID' from the .env.local file.");
+      localStorage.setItem('ecolens_logged_in', 'true');
+    } catch (err: any) {
+      console.error(err);
+      if (err.message && (err.message.includes('permission') || err.message.includes('403'))) {
+        setErrorMessage("Permission Denied: Your Google account does not have active Earth Engine access or project permission.");
       } else {
-        alert("Failed to connect to Earth Engine. " + e.message);
+        setErrorMessage(err.message || String(err));
       }
-      console.error(e);
     }
+  };
+
+  const handleLogout = () => {
+    logoutGEE();
+    setUser(null);
+    setIsGeeReady(false);
+    setShowSettings(true);
   };
 
   const handleDownloadData = () => {
@@ -654,40 +682,54 @@ const App: React.FC = () => {
 
       {showSettings && (
         <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-lg flex items-center justify-center p-4 transition-all duration-500 animate-in fade-in">
-          <div className="bg-slate-900/80 border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-[0_0_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transform transition-all hover:scale-[1.02] duration-300">
-            <div className="flex flex-col items-center text-center space-y-6">
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
-                <img 
-                  src="logo.png" 
-                  alt="EcoLens Logo" 
-                  className="relative w-24 h-24 rounded-2xl shadow-2xl transition-transform duration-500 group-hover:rotate-3 group-hover:scale-110 cursor-pointer" 
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <h2 className="text-3xl font-extrabold text-white tracking-tight">
-                  EcoLens <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">WebGIS</span>
-                </h2>
-                <p className="text-slate-400 text-sm font-medium leading-relaxed">
-                  Advanced spatiotemporal analysis workstation powered by Google Earth Engine.
-                </p>
-              </div>
-
-              <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-4"></div>
-
-              <button 
-                onClick={handleLogin} 
-                className="group relative w-full bg-white text-slate-950 font-bold py-4 rounded-2xl transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-50 to-cyan-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5 relative z-10" />
-                <span className="relative z-10">Authorize with Google Account</span>
-              </button>
-
-              <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold">
-                Secure Authentication via Google OAuth
-              </p>
+          <div className="glass-card p-10 w-full max-w-md rounded-[3rem] border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] transform transition-all hover:scale-[1.01] duration-300">
+            <div className="flex flex-col items-center text-center space-y-8">
+              {!isGeeReady ? (
+                <>
+                  <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
+                    <img src="logo.png" alt="EcoLens Logo" className="relative w-28 h-28 rounded-3xl shadow-2xl transition-transform duration-500 group-hover:rotate-3 group-hover:scale-110" />
+                  </div>
+                  <div className="space-y-3">
+                    <h2 className="text-4xl font-black text-white tracking-tighter">EcoLens <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">WebGIS</span></h2>
+                    <p className="text-slate-400 text-base font-medium leading-relaxed">Spatiotemporal precision analytics powered by Google Earth Engine.</p>
+                  </div>
+                  <div className="w-full h-px bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
+                  <button onClick={handleLogin} className="w-full bg-white text-slate-950 font-black py-5 rounded-2xl shadow-[0_20px_40px_rgba(255,255,255,0.1)] hover:bg-slate-100 transition-all flex items-center justify-center gap-4 group">
+                    <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+                    Connect with Google Cloud
+                  </button>
+                  <button onClick={() => setShowSettings(false)} className="text-slate-500 hover:text-slate-300 text-xs font-bold uppercase tracking-widest transition-colors">Continue as Guest (Map Only)</button>
+                </>
+              ) : (
+                <>
+                  <div className="relative group">
+                    <div className="absolute -inset-2 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-[3rem] blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+                    <img src={user?.picture || 'logo.png'} alt="Profile" className="relative w-28 h-28 rounded-[2.5rem] border-4 border-slate-900 shadow-2xl" />
+                    <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-2xl shadow-lg border-4 border-slate-900">
+                      <Globe size={20} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-3xl font-black text-white tracking-tight">{user?.name}</h3>
+                    <p className="text-slate-400 text-sm font-bold flex items-center gap-2 justify-center bg-slate-800/50 px-4 py-2 rounded-xl border border-white/5"><Terminal size={14} className="text-cyan-400" />{user?.email}</p>
+                  </div>
+                  <div className="w-full grid grid-cols-1 gap-3">
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-3xl text-left flex items-center gap-5">
+                       <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-400 glow-emerald"><Activity size={24} /></div>
+                       <div>
+                         <p className="text-[10px] uppercase tracking-widest font-black text-emerald-500">System Status</p>
+                         <p className="text-base font-bold text-white">Cloud Node Active</p>
+                       </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3 w-full">
+                    <button onClick={() => setShowSettings(false)} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-black py-5 rounded-2xl transition-all shadow-xl">Back to Workspace</button>
+                    <button onClick={handleLogout} className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 font-black py-5 rounded-2xl transition-all">Sign Out Account</button>
+                  </div>
+                </>
+              )}
+              {errorMessage && <div className="mt-4 p-5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs font-bold leading-relaxed">{errorMessage}</div>}
             </div>
           </div>
         </div>
@@ -712,8 +754,18 @@ const App: React.FC = () => {
                 <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-xl bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all" title="Close Sidebar">
                   <ChevronLeft size={20} />
                 </button>
-                <button onClick={() => setShowSettings(true)} className={`p-2 rounded-xl transition-all shadow-lg ${isGeeReady ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse'}`} title="Configure Earth Engine">
-                  <Settings size={18} />
+                <button 
+                  onClick={() => setShowSettings(true)} 
+                  className={`group p-0.5 rounded-xl transition-all shadow-lg overflow-hidden border-2 ${isGeeReady ? 'border-emerald-500/30 hover:border-emerald-500/60' : 'border-red-500/30 hover:border-red-500/60 animate-pulse'}`} 
+                  title="User Account"
+                >
+                  {user?.picture ? (
+                    <img src={user.picture} alt="User" className="w-9 h-9 rounded-lg" />
+                  ) : (
+                    <div className={`w-9 h-9 flex items-center justify-center transition-colors ${isGeeReady ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                      <Settings size={18} className="group-hover:rotate-90 transition-transform duration-500" />
+                    </div>
+                  )}
                 </button>
               </div>
             </div>
