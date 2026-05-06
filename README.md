@@ -5,7 +5,7 @@
     <a href="https://saimsuhailqu.github.io/ecolens-github/" target="_blank">
       <img src="https://img.shields.io/badge/Live%20Demo-Available-brightgreen?style=for-the-badge&logo=github" alt="Live Demo" />
     </a>
-    <img src="https://img.shields.io/badge/Version-v1.2.0-blue?style=for-the-badge" alt="Version 1.2.0" />
+    <img src="https://img.shields.io/badge/Version-v1.3.0-blue?style=for-the-badge" alt="Version 1.3.0" />
     <img src="https://img.shields.io/badge/Google%20Earth%20Engine-Powered-orange?style=for-the-badge" alt="GEE Powered" />
   </p>
 </div>
@@ -15,25 +15,29 @@ EcoLens WebGIS is an advanced, cloud-powered geospatial workstation designed for
 ## 🌐 Live Demo
 Access the live application here: **[EcoLens WebGIS Live](https://saimsuhailqu.github.io/ecolens-github/)**
 
-## 🌟 Key Features
+## 🌟 Key Features (v1.3.0)
 
-* **Cloud-Powered Computation:** Direct integration with the Google Earth Engine (GEE) API to process petabytes of public satellite imagery (Copernicus Sentinel-2, Landsat 8, ERA5 Climate Data) in real-time without requiring high-end local hardware.
-* **Dynamic Spatial Selection:** Analyze environments by selecting administrative boundaries down to the Tehsil level, or by drawing custom polygons directly on the interactive map.
-* **Comprehensive Environmental Indices:** Calculate and visualize over 30 spectral and climate indices across multiple categories:
-  * **Vegetation:** NDVI, SAVI, EVI, MSAVI
-  * **Water:** NDWI, MNDWI
-  * **Heat:** Land Surface Temperature (LST), Urban Heat Island (UHI) footprint
-  * **Climate & Drought:** Monthly Temperature, Rainfall, PDSI (Palmer Drought Severity Index)
-* **Time-Series Analytics:** Automatically generates monthly time-series charts to track environmental trends over a selected year.
-* **Land Use & Land Cover (LULC):** Instant land cover classification and distribution charting using the Dynamic World dataset.
-* **Export Capabilities:** Export processed high-resolution GeoTIFF satellite maps and statistical CSV reports for offline research.
+* **Premium Workstation UI:** A high-end, glassmorphic interface with mesh-gradient backgrounds and smooth micro-animations for a professional research experience.
+* **Cloud-Powered Computation:** Direct integration with the Google Earth Engine (GEE) API to process petabytes of public satellite imagery (Copernicus Sentinel-2, Landsat 8, ERA5 Climate Data) in real-time.
+* **Analytical Accuracy:**
+  * **Intelligent Cloud Masking:** Automated bitwise masking for Landsat 8 and Sentinel-2 to ensure "clean" atmospheric data.
+  * **Seasonal UHI Correction:** Sophisticated Urban Heat Island calculation using monthly rural baselines for seasonal accuracy.
+* **Flexible Spatial Controls:** 
+  * Analyze by right-clicking on the map to auto-detect administrative regions.
+  * Draw custom polygons or import spatial files (KML, GeoJSON, Zipped Shapefiles).
+  * Clear state management for a seamless "selection-to-analysis" workflow.
+* **Advanced Data Export:**
+  * **Individual Index ZIPs:** Export multi-band analyses as a ZIP archive containing separate, individual GeoTIFFs for each index.
+  * **Dynamic GEE Scripts:** Generates runnable Earth Engine JavaScript snippets for every analysis category to facilitate further research in the GEE Code Editor.
+* **Comprehensive Metrics:** NDVI, NDWI, Land Surface Temperature (LST), PDSI Drought indices, and full Land Use (LULC) classification.
 
 ## 🚀 Tech Stack
 * **Frontend Framework:** React (Vite)
-* **Styling:** Tailwind CSS & Glassmorphism UI
+* **Styling:** Tailwind CSS & Custom Glassmorphism System
 * **Mapping:** Leaflet & React-Leaflet
 * **Geospatial Engine:** Google Earth Engine JavaScript API
 * **Data Visualization:** Recharts
+* **Bundling:** JSZip for browser-side data packaging
 
 ## 🛠️ Run Locally
 
@@ -43,7 +47,7 @@ Access the live application here: **[EcoLens WebGIS Live](https://saimsuhailqu.g
    ```bash
    npm install
    ```
-2. Set up your environment variables. Create a `.env.local` file in the root directory and add your Google OAuth Client ID:
+2. Set up your environment variables. Create a `.env.local` file in the root directory:
    ```env
    VITE_GEE_OAUTH_CLIENT_ID=your_google_oauth_client_id_here
    VITE_GEE_PROJECT_ID=your_google_cloud_project_id_here

@@ -1148,7 +1148,7 @@ const App: React.FC = () => {
         <div className="p-4 border-t border-slate-800 bg-slate-900 text-[10px] text-slate-600 flex justify-between items-center shrink-0">
           <div className="flex gap-4 items-center">
             <div className="flex items-center gap-2">
-              <span className="bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700 font-mono">v1.2.0</span>
+              <span className="bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700 font-mono">v1.3.0</span>
               <span>Powered by Google Earth Engine™</span>
             </div>
             <div className="flex gap-2">
