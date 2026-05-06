@@ -200,14 +200,14 @@ const getIndexExpression = (id: string, bands: any, img: any) => {
     case 'cai': return img.expression('(SWIR1 + SWIR2) / SWIR1', { 'SWIR1': b('swir1'), 'SWIR2': b('swir2') });
     case 'lst': {
       if (!bands.thermal) return null;
-      // Landsat 8/9 ST_B10 to Celsius: DN * 0.00341802 + 149.0 - 273.15
-      const thermal = b('thermal').multiply(0.00341802).add(149.0).subtract(273.15).rename('lst');
+      // Landsat 8/9 ST_B10 is already in Kelvin from getScaledImage
+      const thermal = b('thermal').subtract(273.15).rename('lst');
       // Mask non-physical values (outliers) - Range: -30 to 75 Celsius
       return thermal.updateMask(thermal.gt(-30).and(thermal.lt(75)));
     }
     case 'uhi': {
       if (!bands.thermal) return null;
-      const thermal = b('thermal').multiply(0.00341802).add(149.0).subtract(273.15).rename('uhi');
+      const thermal = b('thermal').subtract(273.15).rename('uhi');
       // UHI spatial distribution: LST - background (will be adjusted in aggregation)
       return thermal.updateMask(thermal.gt(-30).and(thermal.lt(75)));
     }
@@ -345,7 +345,7 @@ export const analyzeRegionWithGEE = async (
     const meanThermal = imageCol.select(thermalBand).median();
     
     if (bands.thermal) {
-      const lst = meanThermal.multiply(0.00341802).add(149.0).subtract(273.15);
+      const lst = meanThermal.multiply(0.00341802).add(149.0).subtract(273.15).rename('lst');
       const ruralStats = lst.updateMask(ruralMask).reduceRegion({ 
         reducer: ee.Reducer.mean(), 
         geometry: optimizedGeometry, 
@@ -449,11 +449,11 @@ export const analyzeRegionWithGEE = async (
       }
 
       if (img) {
-        const palette = idx.category === 'Vegetation' ? ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] : 
-                      idx.category === 'Water' ? ['red', 'yellow', 'green', 'cyan', 'blue'] : 
-                      idx.category === 'Burn' ? ['#7a5230', '#d5a478', '#fff5d7', '#d4e7b0', '#397d49'] : 
-                      idx.category === 'Heat' ? ['#0000ff', '#00ffff', '#ffff00', '#ff7f00', '#ff0000'] :
-                      idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
+        const palette = idx.category === 'Vegetation' ? ['#a50026', '#d73027', '#f46d43', '#fdae61', '#fee08b', '#ffffbf', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'] : 
+                      idx.category === 'Water' ? ['#d7191c', '#fdae61', '#ffffbf', '#abd9e9', '#2c7bb6'] : 
+                      idx.category === 'Burn' ? ['#000000', '#550000', '#aa0000', '#ff0000', '#ff5500', '#ffaa00', '#ffff00', '#00ff00'] : 
+                      idx.category === 'Heat' ? ['#0d0887', '#5c01a6', '#9c179e', '#cc4678', '#ed7953', '#fdb32f', '#f0f921'] :
+                      idx.id === 'pdsi' || idx.id === 'spei' ? ['#a50026', '#d73027', '#f46d43', '#fdae61', '#fee08b', '#ffffbf', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'] : ['#fde725', '#5ec962', '#21918c', '#3b528b', '#440154'];
         const vis = { 
           min: idx.category === 'Climate' ? -10 : idx.id === 'uhi' ? 0 : idx.category === 'Heat' ? 10 : -1, 
           max: idx.category === 'Climate' ? 10 : idx.id === 'uhi' ? 10 : idx.category === 'Heat' ? 50 : 1, 
@@ -562,11 +562,11 @@ export const getLazyMapId = async (indexId: string, regionGeometry: any, metadat
         getIndexExpression(idx.id, metadata.bands, medianImage));
 
   if (!img) return null;
-  const palette = idx.category === 'Vegetation' ? ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] : 
-                idx.category === 'Water' ? ['red', 'yellow', 'green', 'cyan', 'blue'] : 
-                idx.category === 'Burn' ? ['#7a5230', '#d5a478', '#fff5d7', '#d4e7b0', '#397d49'] : 
-                idx.category === 'Heat' ? ['#0000ff', '#00ffff', '#ffff00', '#ff7f00', '#ff0000'] :
-                idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
+  const palette = idx.category === 'Vegetation' ? ['#a50026', '#d73027', '#f46d43', '#fdae61', '#fee08b', '#ffffbf', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'] : 
+                idx.category === 'Water' ? ['#d7191c', '#fdae61', '#ffffbf', '#abd9e9', '#2c7bb6'] : 
+                idx.category === 'Burn' ? ['#000000', '#550000', '#aa0000', '#ff0000', '#ff5500', '#ffaa00', '#ffff00', '#00ff00'] : 
+                idx.category === 'Heat' ? ['#0d0887', '#5c01a6', '#9c179e', '#cc4678', '#ed7953', '#fdb32f', '#f0f921'] :
+                idx.id === 'pdsi' || idx.id === 'spei' ? ['#a50026', '#d73027', '#f46d43', '#fdae61', '#fee08b', '#ffffbf', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'] : ['#fde725', '#5ec962', '#21918c', '#3b528b', '#440154'];
   const vis = { 
     min: idx.category === 'Climate' ? -10 : idx.id === 'uhi' ? 0 : idx.category === 'Heat' ? 10 : -1, 
     max: idx.category === 'Climate' ? 10 : idx.id === 'uhi' ? 10 : idx.category === 'Heat' ? 50 : 1, 

@@ -424,6 +424,8 @@ const App: React.FC = () => {
   const handleDrawCreate = (geojson: any) => {
     setCustomGeometry(geojson);
     setAnalysisLevel('custom');
+    setSelectedRegion(null);
+    setPendingLocation(null);
     setDrawingMode(false);
   };
 
@@ -708,36 +710,7 @@ const App: React.FC = () => {
               )}
             </div>
 
-            <div className="relative">
-              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <Search size={14} className="text-emerald-500" />
-              </div>
-              <input
-                id="local-search"
-                name="local-search"
-                type="text"
-                placeholder={`Search in ${selectedCountry}...`}
-                value={localSearchQuery}
-                onChange={(e) => handleSearch(e.target.value, 'local')}
-                className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-full py-2 pl-9 pr-4 focus:ring-2 focus:ring-emerald-500/50 outline-none placeholder:text-slate-600 transition-all"
-                aria-label={`Search in ${selectedCountry}`}
-              />
-              {isSearching === 'local' && (
-                <div className="absolute right-3 top-2">
-                  <Loader2 size={12} className="animate-spin text-emerald-500" />
-                </div>
-              )}
-              {localSearchResults.length > 0 && (
-                <div className="absolute z-50 left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-[300px] overflow-y-auto animate-in fade-in zoom-in-95 duration-200 custom-scrollbar">
-                  {localSearchResults.map((result, i) => (
-                    <button key={i} onClick={() => handleSearchResultClick(result)} className="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-800 border-b border-slate-800 last:border-0 flex items-center gap-3 transition-colors">
-                      <MapPin size={12} className="text-emerald-500 shrink-0" />
-                      <span className="truncate">{result.display_name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+
           </div>
         </header>
 

@@ -4,6 +4,18 @@ import { RegionGeometry, Coordinates, RegionAnalysis, AVAILABLE_INDICES } from '
 import L from 'leaflet';
 import 'leaflet-draw';
 import 'leaflet-draw/dist/leaflet.draw.css';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
+
+// Fix for default marker icons in Leaflet with Vite/Webpack
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: iconRetina,
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+});
 import { MapPin, MousePointer2, Square, Hexagon } from 'lucide-react';
 import { Legend } from './Legend';
 
@@ -37,6 +49,7 @@ const MapEvents: React.FC<{
   useEffect(() => {
     if (drawingMode) {
       const drawControl = new L.Control.Draw({
+        position: 'topright',
         draw: { polygon: {}, polyline: false, rectangle: {}, circle: false, marker: false, circlemarker: false },
         edit: { featureGroup: new L.FeatureGroup().addTo(map), remove: true }
       });
@@ -56,7 +69,7 @@ const MapEvents: React.FC<{
   }, [drawingMode, map, onDrawCreate]);
 
   useMapEvents({
-    click(e) { if (!drawingMode) onSelect({ lat: e.latlng.lat, lng: e.latlng.lng }); },
+    contextmenu(e) { if (!drawingMode) onSelect({ lat: e.latlng.lat, lng: e.latlng.lng }); },
     overlayadd(e) { onOverlayAdd(e.name); },
     overlayremove(e) { onOverlayRemove(e.name); },
   });
@@ -105,11 +118,11 @@ export const MapViewer: React.FC<MapViewerProps> = (props) => {
 
     if (!idx) return null;
 
-    const palette = idx.category === 'Vegetation' ? ['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'] : 
-                    idx.category === 'Water' ? ['red', 'yellow', 'green', 'cyan', 'blue'] : 
-                    idx.category === 'Burn' ? ['#7a5230', '#d5a478', '#fff5d7', '#d4e7b0', '#397d49'] : 
-                    idx.category === 'Heat' ? ['#0000ff', '#00ffff', '#ffff00', '#ff7f00', '#ff0000'] :
-                    idx.id === 'pdsi' || idx.id === 'spei' ? ['#ff0000', '#ffffff', '#0000ff'] : ['#008000', '#ffff00', '#ff0000'];
+    const palette = idx.category === 'Vegetation' ? ['#a50026', '#d73027', '#f46d43', '#fdae61', '#fee08b', '#ffffbf', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'] : 
+                    idx.category === 'Water' ? ['#d7191c', '#fdae61', '#ffffbf', '#abd9e9', '#2c7bb6'] : 
+                    idx.category === 'Burn' ? ['#000000', '#550000', '#aa0000', '#ff0000', '#ff5500', '#ffaa00', '#ffff00', '#00ff00'] : 
+                    idx.category === 'Heat' ? ['#0d0887', '#5c01a6', '#9c179e', '#cc4678', '#ed7953', '#fdb32f', '#f0f921'] :
+                    idx.id === 'pdsi' || idx.id === 'spei' ? ['#a50026', '#d73027', '#f46d43', '#fdae61', '#fee08b', '#ffffbf', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'] : ['#fde725', '#5ec962', '#21918c', '#3b528b', '#440154'];
     
     return { params: { 
       min: idx.category === 'Climate' ? -10 : idx.category === 'Heat' ? 10 : -1, 
