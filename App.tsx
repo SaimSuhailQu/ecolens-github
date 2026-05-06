@@ -4,7 +4,7 @@ import { DynamicIndexChart, ClimateChart } from './components/Charts';
 import { LandCoverDonut } from './components/LandCoverDonut';
 import { LULCChart } from './components/LULCChart';
 import { CodeBlock } from './components/CodeBlock';
-import { analyzeRegionWithGEE, initializeGEE, getRegionFromCoords, getExportUrl, getCountries, getProvinces, getDistricts, getTehsils, getLazyMapId } from './services/earthEngineService';
+import { analyzeRegionWithGEE, initializeGEE, getRegionFromCoords, getExportUrl, getExportZipUrls, getCountries, getProvinces, getDistricts, getTehsils, getLazyMapId } from './services/earthEngineService';
 import { Coordinates, RegionAnalysis, AnalysisStatus, AnalysisLevel, AVAILABLE_INDICES, RegionGeometry } from './types';
 import toGeoJSON from 'togeojson';
 import shp from 'shpjs';
@@ -574,12 +574,12 @@ const App: React.FC = () => {
   };
 
   const handleDownloadGeoTIFF = async () => {
-    if (!analysis || !selectedRegion || exportIndices.length === 0) return;
+    if (!analysis || (!selectedRegion && !customGeometry) || exportIndices.length === 0) return;
 
     setIsExporting(true);
     try {
-      const url = await getExportUrl(
-        analysis.regionGeometry || selectedRegion.geometry,
+      const results = await getExportZipUrls(
+        analysis.regionGeometry || customGeometry || selectedRegion?.geometry,
         selectedYear,
         resolution,
         startDate,
@@ -587,14 +587,36 @@ const App: React.FC = () => {
         exportIndices
       );
 
-      if (url) {
-        window.open(url, '_blank');
+      if (results && results.length > 0) {
+        const zip = new JSZip();
+        
+        // Fetch all TIFFs in parallel
+        await Promise.all(results.map(async (item) => {
+          try {
+            const response = await fetch(item.url);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const blob = await response.blob();
+            zip.file(item.name, blob);
+          } catch (e) {
+            console.warn(`Failed to fetch ${item.name}:`, e);
+          }
+        }));
+
+        const content = await zip.generateAsync({ type: 'blob' });
+        const downloadUrl = URL.createObjectURL(content);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `${analysis.locationName}_environmental_indices.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(downloadUrl);
       } else {
-        alert("Failed to generate GeoTIFF. The selected area might be too large or no data available for selected indices.");
+        alert("Failed to generate GeoTIFFs. The selected area might be too large or no data available for selected indices.");
       }
     } catch (error) {
       console.error(error);
-      alert("An error occurred while generating the GeoTIFF.");
+      alert("An error occurred while generating the ZIP archive.");
     } finally {
       setIsExporting(false);
     }

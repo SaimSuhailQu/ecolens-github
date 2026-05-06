@@ -114,17 +114,16 @@ const getTiffUrlWithRetry = (image: any, name: string, region: any, initialScale
     // Simplify region for download to prevent complexity errors
     const downloadRegion = region.bounds();
 
-    // Dynamically calculate a safe scale to avoid 400 Bad Request due to pixel limits
+    // Dynamically calculate a safe scale to avoid 400 Bad Request due to pixel limits (50MB total request size)
     downloadRegion.area(100).evaluate((areaSqMeters: any, err: any) => {
       if (err || !areaSqMeters) {
         resolve(null);
         return;
       }
       
-      // Calculate minimum scale to keep total pixels under a safe threshold (~250,000 pixels)
-      // area = width * height = (pixels_x * scale) * (pixels_y * scale) = total_pixels * scale^2
-      // scale = sqrt(area / maxPixels)
-      const maxSafePixels = 250000;
+      // Calculate minimum scale to keep total pixels under a safe threshold (~100,000 pixels)
+      // This ensures we stay under the 50MB limit even for multi-band GeoTIFFs (4 bytes per pixel per band)
+      const maxSafePixels = 100000;
       const minScale = Math.ceil(Math.sqrt(areaSqMeters / maxSafePixels));
       const safeScale = Math.max(initialScale, minScale);
 
@@ -305,6 +304,30 @@ const getLULCData = async (geometry: any, year: number, signal?: AbortSignal, op
   const totalPixels = Object.values(lulcChart.label as object).reduce((a, b) => a + b, 0);
   const lulcData = Object.entries(lulcChart.label as object).map(([id, count]) => ({ name: lulcClasses[Number(id)]?.name, percentage: (count / totalPixels) * 100, color: lulcClasses[Number(id)]?.color })).filter(d => d.name);
   return { visualization: lulcMap, data: lulcData };
+};
+
+export const getExportZipUrls = async (region: any, year: number, resolution: number, startDate: string, endDate: string, selectedIndices: string[]): Promise<{ name: string, url: string }[]> => {
+    const rawGeometry = ee.Geometry(validateAndCleanGeometry(region));
+    const area = ee.Number(rawGeometry.area()).divide(1e6);
+    const areaValue: number = await new Promise((res) => area.evaluate((v: any) => res(v || 0)));
+    const geometry = getOptimizedGeometry(rawGeometry, areaValue);
+
+    const imageCol = ee.ImageCollection(resolution === 10 ? 'COPERNICUS/S2_SR' : 'LANDSAT/LC08/C02/T1_L2')
+        .filterDate(startDate, endDate).filterBounds(geometry);
+    const medianImage = getScaledImage(imageCol.median().clip(geometry), resolution);
+    const bands = resolution === 10 ? 
+        { blue: 'B2', green: 'B3', red: 'B4', nir: 'B8', swir1: 'B11', swir2: 'B12', re1: 'B5', re2: 'B6', re3: 'B7' } :
+        { blue: 'SR_B2', green: 'SR_B3', red: 'SR_B4', nir: 'SR_B5', swir1: 'SR_B6', swir2: 'SR_B7', re1: 'SR_B5', re2: 'SR_B5', re3: 'SR_B5', thermal: 'ST_B10' };
+    
+    const results: { name: string, url: string }[] = [];
+    for (const id of selectedIndices) {
+        const idxImg = getIndexExpression(id, bands, medianImage);
+        if (idxImg) {
+            const url = await getTiffUrlWithRetry(idxImg.rename(id), `${id}_${year}`, geometry, resolution);
+            if (url) results.push({ name: `${id}_${year}.tif`, url });
+        }
+    }
+    return results;
 };
 
 export const getExportUrl = async (region: any, year: number, resolution: number, startDate: string, endDate: string, selectedIndices: string[]): Promise<string | null> => {
